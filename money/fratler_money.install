@@ -1,0 +1,99 @@
+<?php
+
+function fratler_money_uninstall() {
+	variable_del('fm_locale');
+	variable_del('fm_trans_max');
+}
+
+function fratler_money_schema() {
+	$schema = array();
+	$schema['fratler_money'] = array(
+			'fields' => array(
+				'tid' => array(
+					'type' 		=> 'serial',
+					'unsigned' 	=> true,
+					'not null' 	=> true,
+					),
+				'type' => array(
+					'type'		=> 'int',
+					'length'	=> 3,
+					),	
+				'rid' => array(
+					'type'		=> 'varchar',
+					'length'	=> 60,
+					'not null'	=> true,
+					),
+				'sid' => array(
+					'type'		=> 'varchar',
+					'length'	=> 60,
+					'not null'	=> true,
+					),
+				'text' => array(
+					'type'		=> 'text',
+					),
+				'amount' => array(
+					'type'		=> 'numeric',
+					'precision'	=> 10,
+					'scale'		=> 2,
+					'not null'	=> true,
+					),
+				'balance' => array(
+					'type'		=> 'numeric',
+					'precision'	=> 10,
+					'scale'		=> 2,
+					'not null'	=> true,
+					),
+				'timestamp' => array(
+					'type'		=> 'int',
+					),
+				'iid' => array(
+					'type'		=> 'int',
+					'unsigned'	=> true,
+					'default'	=> 0,
+					),
+				'fingerprint' => array(
+					'type'		=> 'varchar',
+					'length'	=> 32,
+					'not null'	=> true,
+					),
+				'signature' => array(
+					'type'		=> 'text',
+					),
+				),
+
+				'indexes' => array(
+					'idx_rid' => array('rid'),
+					'idx_sid' => array('sid'),
+					'idx_iid' => array('iid'),
+					'idx_tim' => array('timestamp'),
+					),
+				'primary key' => array('tid'),
+				);
+
+		$schema['fratler_money_balances'] = array(
+			'fields' => array(
+				'uid' => array(
+					'type'		=> 'int',
+					'not null'	=> true,
+					),
+				'balance' => array(
+					'type'		=> 'numeric',
+					'precision'	=> 10,
+					'scale'		=> 2,
+					'not null'	=> true,
+					'default'	=> 0,
+					),
+				'timestamp' => array(
+					'type'		=> 'int',
+					),
+				'last_trans' => array(
+					'type'		=> 'int',
+					),
+				),	
+				'primary key' => array('uid'),
+			);	
+
+	return $schema;
+}
+
+

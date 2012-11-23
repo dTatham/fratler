@@ -1,0 +1,36 @@
+.fm_credit {
+	color: #33bb33;
+	font-weight: bold;
+}
+
+.fm_debit {
+	color: #bb3333;
+	font-weight: bold;
+}
+
+.fm_amount {
+	text-align: right;
+	white-space: nowrap;
+}
+div.fm_symbol {
+	float: left;
+}
+td.fm_message {
+	margin-top: 0.5em;
+	font-style: italic;
+}
+th.fm_message {
+	width: 100%;
+}
+.fm_header, .fm_date {
+	white-space: nowrap;
+}
+.fm_checksum {
+	display: none;
+}
+.fm_singlet {
+	width: 75%;
+}
+.fm_center {
+	text-align: center;
+}

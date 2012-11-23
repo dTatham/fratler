@@ -1,0 +1,8 @@
+name = Fratler Commons
+description = internal utilities for the fratler_suite
+core = 7.x
+package = fratler_suite
+
+configure = admin/config/fratler/common
+
+files[] = fm_admin.inc
