@@ -7,7 +7,7 @@ function refreshTable(uid, page, sort, order) {
 
 	jQuery.ajax({
 		cache: false,
-		url: Drupal.settings.basePath + '?q=fratler/callback/money/' + uid,
+		url: Drupal.settings.basePath + '?q=fratler/callback/money/statement/' + uid,
 		data: {uid: uid, page: page, sort: sort, order: order},
 		dataType: 'text',
 		error: function(request, status, error) {

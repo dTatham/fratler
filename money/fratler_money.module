@@ -73,6 +73,21 @@ function fratler_money_menu() {
 		'type'		=> MENU_NORMAL_ITEM,
 		'menu_name'	=> 'user-menu',
 	);
+	$items['fratler/money/transfer/normal'] = array(
+		'title'		=> t('Standard transaction'),
+		'type'		=> MENU_DEFAULT_LOCAL_TASK,
+	);
+
+	// Account adjustment
+	$items['fratler/money/transfer/adjust'] = array(
+		'title'		=> t('Adjust account'),
+#		'page callback'	=> 'drupal_get_form',
+		'page arguments' => array('fm_transfer', 'adjust'),
+		'access arguments' => array('fm adjust'),
+#		'file'		=> 'fm_adjust.inc',
+		'type'		=> MENU_LOCAL_TASK,
+		'weight'	=> 30,
+	);
 
 	// Display a single transaction sheet
 	$items['fratler/money/display/%'] = array(
@@ -90,18 +105,29 @@ function fratler_money_menu() {
 		'page callback' => '_fm_user_display',
 		'page arguments' => array(1), 
 		'access callback' => '_fm_access',
-		'access arguments' => array(2,1), // permission
+		'access arguments' => array('fm_statement',1), // permission
 		'type' => MENU_LOCAL_TASK,
 	);
 
 	// Account-Statement Callback
-	$items['fratler/callback/money/%user_uid_optional'] = array(
+	$items['fratler/callback/money/statement/%user_uid_optional'] = array(
 		'title'		=> 'Account statement AJAX Callback',
 		'page callback'	=> '_fm_user_display_callback',
-		'page arguments' => array(3),
+		'page arguments' => array(4),
 		'access callback' => '_fm_access',
-		'access arguments' => array('fm_statement', 3),
+		'access arguments' => array('fm_statement', 4),
 		'type' 		=> MENU_CALLBACK,
+		'file'		=> 'fm_callbacks.inc',
+	);
+
+	// User-Completion Callback
+	$items['fratler/callback/money/transfer'] = array(
+		'title'		=> 'User Autocomplete',
+		'page callback'	=> '_fm_autocomplete',
+		'access callback' => '_fm_access',
+		'access arguments' => array('fm view other', 'fm view own'),
+		'type'		=> MENU_CALLBACK,
+		'file'		=> 'fm_callbacks.inc',
 	);
 
 
@@ -135,8 +161,7 @@ function fratler_money_help($path, $arg) {
  * 	one or more user-permissions
  */
 function _fm_access() {
-#	error_log("Permissions: " . print_r(func_get_args(), true));
-	if (func_num_args() == 2) {
+	if (func_num_args() == 2 && is_object(func_get_arg(1))) {
 		global $user;
 
 		switch (func_get_arg(0)) {
@@ -160,12 +185,16 @@ class fm_transaction_detail {
 	public $rid_data;
 	public $sid_data;
 	public $iid_data;
+	public $adjust = false;
 
 	function __construct() {
 		if (!function_exists('_fm_strip'))
 			module_load_include('inc', 'fratler_money', 'fm_tools');
 		$this->rid_data = user_load($this->rid);
-		$this->sid_data = user_load($this->sid);
+		if ($this->sid == 0)
+			$this->adjust = true;
+		else
+			$this->sid_data = user_load($this->sid);
 
 		if ($this->iid != 0)
 			$this->iid_data = user_load($this->iid);
@@ -173,11 +202,20 @@ class fm_transaction_detail {
 	}
 
 	function check_signature() {
-		return openssl_verify(_fm_hash_prepare($this->rid, $this->sid, $this->iid, $this->amount, $this->text, $this->balance, $this->timestamp), $this->signature, variable_get('fc_key_public'));
+		return openssl_verify(_fm_hash_prepare($this->rid, $this->sid, $this->iid, $this->type, $this->amount, $this->text, $this->balance, $this->timestamp), $this->signature, variable_get('fc_key_public'));
 	}
 
 }
 
+/**
+ * Show a single Statement
+ * Formatting will be done depending on who's requesting what transaction.
+ * If the current user is part of this transaction (sender / recipient), it will show the transaction from his perspective.
+ * If it's a 3rd party to 3rd party transaction that's initiated by the user, it will show the combined incoming / outgoing transaction, and the respective new balances (if allowed)
+ *
+ * @param hash
+ * 	The transaction-Hash
+ */
 function _fm_display_single($hash) {
 	if (!function_exists('_fm_strip'))
 		module_load_include('inc', 'fratler_money', 'fm_tools');
@@ -195,7 +233,8 @@ function _fm_display_single($hash) {
 	
 	$header = array(
 		'sid' 	=> array('data' => t('Sender'), 'class' => array('fm_header')),	
-		'rid'	=> array('data' => t('Recipient'), 'class' => array('fm_header')),
+		'rid'	=> array('data' => $trans->adjust ? t('Account') :  t('Recipient'), 'class' => array('fm_header')),
+		'type'	=> array('data' => t('Type'), 'class' => array('fm_header')),
 		'text'	=> array('data' => t('Message'), 'class' => array('fm_message')), 
 		'amount' => array('data' => t('Amount'), 'class' => array('fm_header')),
 		'balance' => array('data' => t('New balance'), 'class' => array('fm_header')),
@@ -206,21 +245,24 @@ function _fm_display_single($hash) {
 	// Do some cosmetics
 	if ($trans->sid != $user->uid && $trans->rid != $user->uid && !user_access('fm view other'))		// If viewing a third-party to third-party transaction and the user is not allowed to view other accounts, drop the "balance";
 		unset($header['balance']);
+	if ($trans->adjust)
+		unset($header['sid']);
 	
-
 	$row0 = array();
 	$row1 = array();
 	$split = false;
 
-	if ($trans->iid == $user->uid) // We have some funny-business - split rows in 2
+	if ($trans->iid == $user->uid && !$trans->adjust) // We have some funny-business - split rows in 2
 		$split = true;
-			$row0['sid'] = format_username($trans->sid_data);
+	if (!$trans->adjust)	$row0['sid'] = format_username($trans->sid_data);
 	if ($split) 	$row1['sid'] = ''; 
 
 	if ($split) { 	$row1['rid'] = format_username($trans->rid_data); $row0['rid'] = ''; } 
 	else 		$row0['rid'] = format_username($trans->rid_data);
 
-			$row0['text'] = array('data' => _fm_strip_html($trans->text), 'rowspan' => $split ? 2 : 1);
+			$row0['type'] = array('data' => taxonomy_term_load($trans->type)->name, 'rowspan' => $split ? 2 : 1);
+
+			$row0['text'] = array('data' => ($trans->iid != 0 ? t('By') . ': ' . format_username(user_load($trans->iid)) . '<br />' : '') . _fm_strip_html($trans->text), 'rowspan' => $split ? 2 : 1);
 
 	if ($split)	$row1['amount'] = array('data' => money_format("%n", $trans->amount), 'class' => array('fm_amount', ($trans->amount > 0) ? 'fm_credit' : 'fm_debit'));
 	if ($split && isset($header['balance']))	$row1['balance'] = array('data' => money_format("%n", $trans->balance), 'class' => array('fm_amount', ($trans->balance > 0) ? 'fm_credit' : 'fm_debit'));
@@ -229,7 +271,7 @@ function _fm_display_single($hash) {
 	if ($split)	$row1['signature'] = array('data' => $trans->check_signature() ? 'OK' : 'ERROR');
 
 	// If it's a (regular) two-way transaction, swap the remaining transaction data
-	if ($trans->sid == $user->uid || $trans->iid == $user->uid)
+	if (($trans->sid == $user->uid || $trans->iid == $user->uid) && $trans->sid != 0)
 		$trans = $res->fetch();
 
 	$row0['amount'] = array('data' => money_format("%n", $trans->amount), 'class' => array('fm_amount', ($trans->amount > 0) ? 'fm_credit' : 'fm_debit'));
@@ -238,6 +280,7 @@ function _fm_display_single($hash) {
 
 	$row0['fingerprint'] = array('data' => hash('crc32b', $trans->fingerprint), 'rowspan' => $split ? 2 : 1);
 	$row0['signature'] = array('data' => $trans->check_signature() ? 'OK' : 'ERROR');
+
 
 	$data	= array(
 		'header' 	=> $header,
@@ -274,58 +317,3 @@ function _fm_user_display($uid) {
 	return $page_array;
 }
 
-function _fm_user_display_callback($uid) {
-	header("Content-type: text/html");
-	header("Expires: Wed, 29 Jan 1975 04:15:00 GMT");
-	header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
-	header("Cache-Control: no-cache, must-revalidate");
-	header("Pragma: no-cache");
-
-	$header = array(
-		array('data' => t('id',array(),array('context' => 'Transaction-ID')), 'field' => 'tid', 'sort' => 'desc', 'class' => array('fm_header')),
-		array('data' => t('Timestamp'), 'field' => 'timestamp', 'class' => array('fm_header')),
-		array('data' => t('Message'), 'class' => array('fm_message')),
-		array('data' => t('Amount'), 'class' => array('fm_header')),
-		array('data' => t('New Balance'), 'class' => array('fm_header')),
-		array('data' => t('Fingerprint'), 'class' => array('fm_header')),
-		array('data' => t('Signature'), 'class' => array('fm_header')),
-	);
-
-	$query = db_select('fratler_money', 'f', array('fetch' => 'fm_transaction_detail'))
-		->extend('PagerDefault')
-		->limit(variable_get('fm_pager', 2))
-		->extend('TableSort')
-		->orderByHeader($header)
-		->fields('f', array('tid', 'timestamp', 'rid', 'sid', 'iid', 'text', 'amount', 'balance', 'fingerprint', 'signature'))
-		->condition('rid', $uid->uid)
-		->execute();
-
-
-	$rows = array();
-
-	foreach ($query as $data) {
-		error_log("text: " . bin2hex($data->signature));
-		$rows[$data->tid] = array(
-			$data->tid,
-			array('data' => format_date($data->timestamp, 'short'), 'class' => array('fm_header')),
-			($data->amount < 0 ? t('To') .': ' . format_username($data->sid_data) . '<br />' : '') . 
-				($data->amount > 0 ? t('From') . ': ' . format_username($data->sid_data) . '<br />' : '') . 
-				($data->iid != 0 ? t('By') . ': ' . format_username($data->iid_data) . '<br />' : '')  . $data->text,
-			array('data' => money_format("%n", $data->amount), 'class' => array('fm_amount', $data->amount > 0 ? 'fm_credit' : 'fm_debit')),
-			array('data' => money_format("%n", $data->balance), 'class' => array('fm_amount', $data->balance > 0 ? 'fm_credit' : 'fm_debit')),
-			l(hash('crc32b', $data->fingerprint), 'fratler/money/display/' . $data->fingerprint),
-			$data->check_signature() ? 'OK' : 'Error',
-		);
-	}
-
-	$html = theme('table',  array(
-		'header'	=> $header,
-		'rows'		=> $rows,
-		'sticky'	=> true,
-		'caption'	=> ($display_error ? '<div class="messages error" style="width: 80%">'. t('Some balance records are inconsistent. Please contact your administrator.') . '</div><br />' : ''),
-		)
-	);
-	$html .= theme('pager', array('tags' => array()));
-	die($html);
-
-}

@@ -52,10 +52,10 @@ function _fm_cs() {
  */
 function _fm_balance($user, $date = 0) {
 	if ($date == 0) 
-		return db_query('SELECT balance FROM {fratler_money_balances} WHERE uid = :uid', array(':uid' => $user), array('fetch' => PDO::FETCH_NUM))->fetchField();
+		return floatval(db_query('SELECT balance FROM {fratler_money_balances} WHERE uid = :uid', array(':uid' => $user), array('fetch' => PDO::FETCH_NUM))->fetchField());
 	else	
-		return db_query('SELECT balance FROM {fratler_money} WHERE rid = :uid AND timestamp <= :date ORDER BY timestamp LIMIT 1', array(':uid' => $user, ':date' => $date), array('fetch' => PDO::FETCH_NUM))->fetchField();
-	return floatval(0.0);
+		return floatval(db_query('SELECT balance FROM {fratler_money} WHERE rid = :uid AND timestamp <= :date ORDER BY timestamp LIMIT 1', array(':uid' => $user, ':date' => $date)), array('fetch' => PDO::FETCH_NUM))->fetchField();
+	return floatval(0);
 }
 
 /**
@@ -83,12 +83,12 @@ function _fm_strip_html($text) {
  * @param timestamp
  * 	The transaction-timestamp
 */
-function _fm_hash($sid, $rid, $iid, $amount, $text, $timestamp) {
+function _fm_hash($sid, $rid, $iid, $type, $amount, $text, $timestamp) {
 	if ($amount > 0) 
-		return md5('s' . $sid . 'c' . $rid . 'k' . $iid . 'm' . $amount . 'y' . $text . 'd' . $timestamp . 'ck?');
+		return md5('s' . $sid . 'c' . $rid . 'k' . $iid . 'm' . $type . 'y' .  $amount . 'd' . $text . 'c' . $timestamp . 'k?');
 
 	else
-		return md5('s' . $rid . 'c' . $sid . 'k' . $iid . 'm' . abs($amount) . 'y' . $text . 'd' . $timestamp . 'ck?');
+		return md5('s' . $rid . 'c' . $sid . 'k' . $iid . 'm' . $type . 'y' . abs($amount) . 'd' . $text . 'c' . $timestamp . 'k?');
 }	
 
 /**
@@ -107,8 +107,8 @@ function _fm_hash($sid, $rid, $iid, $amount, $text, $timestamp) {
  * @param timestamp
  * 	The transaction-timestamp
 */
-function _fm_hash_prepare($sid, $rid, $iid, $amount, $text, $balance, $timestamp) {
-		return 's' . $sid . 'c' . $rid . 'k' . $iid . 'm' . number_format($amount, 2, '.', '') . 'y' . $text . 'd' . number_format($balance, 2, '.', '') . 'c' . $timestamp . 'k?';
+function _fm_hash_prepare($sid, $rid, $iid, $type, $amount, $text, $balance, $timestamp) {
+		return 's' . $sid . 'c' . $rid . 'k' . $iid . 'm' . $type . 'y' . number_format($amount, 2, '.', '') . 'd' . $text . 'c' . number_format($balance, 2, '.', '') . 'k' . $timestamp . '?';
 }
 
 /**
@@ -129,8 +129,20 @@ function _fm_hash_prepare($sid, $rid, $iid, $amount, $text, $balance, $timestamp
  * @param timestamp
  * 	The transaction-timestamp
  */
-function _fm_sign($sid, $rid, $iid, $amount, $text, $balance, $timestamp) {
-	openssl_sign(_fm_hash_prepare($sid, $rid, $iid, $amount, $text, $balance, $timestamp), $signature, variable_get('fc_key'));
+function _fm_sign($sid, $rid, $iid, $type, $amount, $text, $balance, $timestamp) {
+	openssl_sign(_fm_hash_prepare($sid, $rid, $iid, $type, $amount, $text, $balance, $timestamp), $signature, variable_get('fc_key'));
 	return $signature;
 }
 
+/**
+ * Check, if user is allowed to participate in the transaction system
+ *
+ * @param user
+ * 	a user-object
+ */
+function _fm_check_participant(&$user) {
+	foreach (array_keys($user->roles) as $role) 
+		if (in_array($role, array_values(variable_get('fm_transfer_groups'))))
+			return true;
+	return false;
+}
