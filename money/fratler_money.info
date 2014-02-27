@@ -1,0 +1,17 @@
+name = Fratler Money
+description = Simple bookkeping for simple people
+core = 7.x
+package = fratler_suite
+#dependencies = <somemod>
+dependencies[] = taxonomy
+dependencies[] = date_api
+
+configure = admin/config/fratler/money
+
+files[] = fm_admin.inc
+files[] = fm_transaction.inc
+
+stylesheets[all][] = styles/fratler_money_main.css
+
+#scripts[] = 
+

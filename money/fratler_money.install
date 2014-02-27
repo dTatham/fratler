@@ -1,0 +1,199 @@
+<?php
+function fratler_money_schema() {
+	$schema = array();
+	$schema['fratler_money_currents'] = array(
+			'fields' => array(
+				'tid'	=> array(
+					'type'		=> 'serial',
+					'unsigned'	=> true,
+					'not null'	=> true,
+					'description'	=> 'The consecutive transaction-ID',
+					),
+				'ttype'	=> array(
+					'type'		=> 'int',
+					'length'	=> 5,
+					'description'	=> 'Taxonomy-reference to the nature of transaction',
+					),
+				'rid'	=> array(
+					'type'		=> 'int',
+					'length'	=> 5,
+					'unsigned'	=> false,
+					'description'	=> 'The userID of the recipient (negative values reserved for master-accounts)',
+					),
+				'sid'	=> array(
+					'type'		=> 'int',
+					'length'	=> 5,
+					'unsigned'	=> false,
+					'description'	=> 'The userID of the sender (negative values reserved for master-accounts)',
+					),
+				'iid'	=> array(
+					'type'		=> 'int',
+					'length'	=> 5,
+					'unsigned'	=> false,
+					'description'	=> 'The userID of the initiator (if it was a 3rd party transaction)',
+					),
+				'txt'	=> array(
+					'type'		=> 'text',
+					'description'	=> 'A note that goes with the transaction (optional)',
+					),
+				'amount' => array(
+					'type'		=> 'numeric',
+					'precision'	=> 15,
+					'scale'		=> 2,
+					'not null'	=> true,
+					'unsigned'	=> false,
+					'description'	=> 'The amount... d\'uh',
+					),
+				'balance' => array(
+					'type'		=> 'numeric',
+					'precision'	=> 15,
+					'scale'		=> 2,
+					'unsigned'	=> false,
+					'description'	=> 'The new balance of the recipient',
+					),
+				'tstamp' => array(
+					'type'		=> 'int',
+					'description'	=> 'The UNIX-Timestamp of the transaction',
+					),
+				'signature' => array(
+					'type'		=> 'blob',
+					'description'	=> 'The binary representation of the transaction-signature',
+					),
+				),
+
+				'indexes' => array(
+					'idx_tstamp'	=> array('tstamp'),
+					'idx_rid'	=> array('rid'),
+					'idx_sid'	=> array('sid'),
+					'idx_iid'	=> array('iid'),
+					),
+				'primary key' => array('tid'),
+				'description' => 'Holds all transactional data since the last archive-run',
+				);
+	$schema['fratler_money_balances'] = array(
+		'fields' => array(
+			'aid'	=> array(
+				'type'		=> 'int',
+				'not null'	=> true,
+				'description'	=> 'The account-ID; Master-Accounts have an aid < 0',
+				),
+			'balance' => array(
+				'type'		=> 'numeric',
+				'precision'	=> 15,
+				'scale'		=> 2,
+				'not null'	=> true,
+				'default'	=> 0,
+				'description'	=> 'The current balance of the given aid',
+				),
+			'tstamp' => array(
+				'type'		=> 'int',
+				'description'	=> 'The timestamp of the last transaction',
+				),
+			'signature' => array(
+				'type'		=> 'blob',
+				'description'	=> 'The binary representation of the balance-signature',
+				),
+			'last_trans' => array(
+				'type'		=> 'int',
+				'description'	=> 'The last transaction-ID that affected the balance',
+				),
+			),
+		'primary key'	=> array('aid'),
+		'description'	=> 'Holds all account-balances',
+		);
+
+	return $schema;
+}
+
+function fratler_money_install() {
+	
+	// Create a vocabulary holding the transaction-types and save the vid for later use
+	$vocabulary	= (object) array(
+			'name'		=> t('Transaction-Types'),
+			'description'	=> t('Fratler Money Transaction-Types. DO NOT REMOVE THIS VOCABULARY. I\'m serious!'),
+			'machine_name'	=> 'fm_types',
+			'module'	=> 'fratler_money',
+			);
+	taxonomy_vocabulary_save($vocabulary);
+	variable_set('fm_vocab', $vocabulary->vid);
+
+	// Populate the vocabulary with some generic transaction-types
+	// Transfers
+	$transactions	= (object) array(
+			'name'		=> t('Transfers'),
+			'description'	=> t('Transfer transaction types'),
+			'parent'	=> array(0),
+			'vid'		=> $vocabulary->vid,
+			);
+	taxonomy_term_save($transactions);
+	variable_set('fm_vocab_transfer', $transactions->tid);
+
+	// Standard-Transfers
+	$term 		= (object) array(
+			'name'		=> t('T', array(), array('context' => 'Abbreviation for Standard Transfer')),
+			'description'	=> t('Standard Transfer'),
+			'parent'	=> $transactions->tid,
+			'vid'		=> $vocabulary->vid,
+			);
+	taxonomy_term_save($term);
+	variable_set('fm_vocab_transfer_term', $term->tid);
+
+	// Adjustments (transaction without counter-transactions)
+	$adjustments 	= (object) array(
+			'name'		=> t('Adjustments'),
+			'description'	=> t('Adjustment transaction types'),
+			'parent'	=> array(0),
+			'vid'		=> $vocabulary->vid,
+			);
+	taxonomy_term_save($adjustments);
+	variable_set('fm_vocab_adjustment', $adjustments->tid);
+
+	// Adjustment-Type: Withdrawal
+	$term 		= (object) array(
+			'name'		=> t('W', array(), array('context' => 'Abbreviation for Withdrawal')),
+			'description'	=> t('Withdrawal'),
+			'parent'	=> $adjustments->tid,
+			'vid'		=> $vocabulary->vid,
+			);
+	taxonomy_term_save($term);
+	variable_set('fm_vocab_adjustment_withdraw', $term->tid);
+
+	// Adjustment-Type: Deposit
+	$term		= (object) array(
+			'name'		=> t('D', array(), array('context' => 'Abbreviation for Deposit')),
+			'description'	=> t('Deposit'),
+			'parent'	=> $adjustments->tid,
+			'vid'		=> $vocabulary->vid,
+			);
+	taxonomy_term_save($term);
+	variable_set('fm_vocab_adjustment_deposit', $term->tid);
+
+
+	// Some basic settings
+	variable_set('fm_locale', 'C');
+	variable_set('fm_pager', 10);
+	variable_set('fm_trans_max', 10);
+	variable_set('fm_overdraw_limit', 0);
+	variable_set('fm_trans_admin', 0);
+
+
+}
+
+
+function fratler_money_uninstall() {
+	@taxonomy_vocabulary_delete(variable_get('fm_vocab', -1));
+
+	variable_del('fm_vocab');
+	variable_del('fm_vocab_transfer');
+	variable_del('fm_vocab_transfer_term');
+	variable_del('fm_vocab_adjustment');
+	variable_del('fm_vocab_adjustment_withdraw');
+	variable_del('fm_vocab_adjustment_deposit');
+
+	variable_del('fm_locale');
+	variable_del('fm_pager');
+	variable_del('fm_trans_max');
+	variable_del('fm_overdraw_limit');
+	variable_del('fm_trans_admin');
+
+}
