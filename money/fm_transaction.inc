@@ -20,7 +20,15 @@ function _fm_map_ttypes($parent) {
 
 }
 
-
+/**
+ * Displays the transaction / adjustment form
+ *
+ * @param entity
+ * 	The entity that will serve as basis for this purpose.
+ *
+ * @param type
+ * 	Either 'transfer' or 'adjustment' (parsed from the URI)
+ */
 function fm_transaction_form($form, &$form_state, $entity, $type) {
 	global $user;
 
@@ -124,7 +132,7 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
 		$entity->balance = $entity->counter ? fm_get_balance($entity->sid)-$entity->amount : fm_get_balance($entity->rid)+$entity->amount;
 
 		// Draw me like one of your French tables...
-		$markup = fm_display_transaction($entity, ($entity->counter ? FMTransactionStyle::FM_SID : 0) | FMTransactionStyle::FM_RID | FMTransactionStyle::FM_TTYPE | FMTransactionStyle::FM_TXT | FMTransactionStyle::FM_AMOUNT | FMTransactionStyle::FM_BAL_SID);
+		$markup = fm_display_transaction($entity, FMTransactionStyle::FM_DEFAULT ^ FMTransactionStyle::FM_TID ^ FMTransactionStyle::FM_SIGNATURE);
 
 		// Calculate the new acount-balance
 		$entity->balance = fm_get_balance($entity->rid) + $entity->amount;
@@ -222,5 +230,6 @@ function fm_transaction_form_submit($form, &$form_state) {
 
 	if (!$form_state['values']['create_new'])
 		$form_state['redirect'] = 'fratler/transaction/view/' . $entity->tid;
+ 
 }
 

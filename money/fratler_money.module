@@ -122,7 +122,7 @@ function fratler_money_menu() {
 	$items['fratler/transaction/statement'] = array(
 		'title'		=> 'Statement',
 		'description'	=> 'View your account statement',
-		'page callback' => 'fm_user_statement',
+		'page callback' => 'fm_statement',
 		'page arguments' => array(),
 		'access callback' => 'fm_access',
 		'access arguments' => array('statement'),
@@ -132,7 +132,7 @@ function fratler_money_menu() {
 	$items['fratler/transaction/statement/%user'] = array(
 		'title'		=> 'Statement',
 		'description'	=> 'View your account statement',
-		'page callback' => 'fm_user_statement',
+		'page callback' => 'fm_statement',
 		'page arguments' => array(3),
 		'access callback' => 'fm_access',
 		'access arguments' => array('statement', 3),
@@ -182,7 +182,8 @@ function fratler_money_menu() {
 	$items['fratler/transaction/view/all'] = array(
 		'title'		=> 'All transactions',
 		'description'	=> 'Display all transactions',
-		'page callback'	=> 'fm_display_all_transactions',
+		'page callback'	=> 'fm_statement',
+		'page arguments' => array(3),
 		'access arguments' => array('display all transactions'),
 		'type'		=> MENU_LOCAL_TASK | MENU_NORMAL_ITEM,
 		'weight'	=> 90,
@@ -191,7 +192,7 @@ function fratler_money_menu() {
 	$items['user/%user/fm_statement'] = array(
 		'title'	=> 'Account statement',
 		'description'	=> 'Account statement',
-		'page callback'	=> 'fm_user_statement',
+		'page callback'	=> 'fm_statement',
 		'page arguments' => array(1),
 		'access callback' => 'fm_access',
 		'access arguments' => array('statement', 1),
@@ -270,18 +271,27 @@ function fm_account_overview($target = null) {
  * 	The fully loaded user object to display.
  *
  */
-function fm_user_statement($target = null) {
+function fm_statement($target = null) {
 	global $user;
 	if (!$target)
 		$target = $user;
-	drupal_set_title($user->uid == $target->uid ? t('My account statement') : t('@name\'s account statement', array('@name' => format_username($target))));
 
 	$style	= FMTransactionStyle::FM_STATEMENT;
-	$header = fratler_money_format_header($style, false);
         $rows	= array();
 
+	// Override $style in case all transactions are displayed
+	if ($target == 'all') 
+		$style = FMTransactionStyle::FM_FULL;
+	else 
+		drupal_set_title($user->uid == $target->uid ? t('My account statement') : t('@name\'s account statement', array('@name' => format_username($target))));
+
+	$header = fratler_money_format_header($style);
 	$query = db_select('fratler_money_currents', 't');
-	$query->condition('rid', $target->uid);
+
+	if ($target == 'all')
+		$query->where('(t.sid = 0) OR (t.sid != 0 AND t.amount > 0)');
+	else
+		$query->condition('rid', $target->uid);
 
 	$count_query = clone $query;
 	$count_query->addExpression('COUNT(t.tid)');
@@ -296,18 +306,22 @@ function fm_user_statement($target = null) {
 	->orderByHeader($header)
 	->setCountQuery($count_query);
 
+	// We're only interested in aids
 	$result = $query->execute()->fetchCol();
+
 
 	if ($result) {
 		$transactions = fratler_money_transaction_load_multiple($result);
 
 		foreach ($transactions as $transaction) {
+			if ($target == 'all') 
+				$transaction->balance_sid = fm_get_balance($transaction->sid, $transaction->tstamp);
 			$rows[] = fratler_money_format_row($transaction, $style);
 		}
 	}
 
-	$build = array(
-		'filter'	=> drupal_get_form('fm_user_statement_filter'),
+	return array(
+		'filter'	=> drupal_get_form('fm_statement_filter'),
 
 		'content'	=> array(
 			'#theme'	=> 'table',
@@ -322,14 +336,13 @@ function fm_user_statement($target = null) {
 			'#weight'	=> 10,
 		),
 	);
-	return $build;
 }
 
 /**
  * Renders the filter for statement-pages; users with permission 'display other transactions' will see a textfield,
  * users with more than 1 account attached to them (-> Master Accounts) will see a dropdown box.
  */
-function fm_user_statement_filter($form, &$form_state) {
+function fm_statement_filter($form, &$form_state) {
 	$items = array();
 	$aids = array();
 
@@ -344,7 +357,6 @@ function fm_user_statement_filter($form, &$form_state) {
 
 	$items['cont'] = array(
 		'#type'	=> 'container',
-		'#collapsible' => true,
 		'#attributes' => array('class' => array('container-inline', 'fm_search_field')), 
 	);
 	if (user_access('display other transactions')) {
@@ -376,7 +388,11 @@ function fm_user_statement_filter($form, &$form_state) {
 /**
  * Parse the required account number, if necessary.
  */
-function fm_user_statement_filter_validate($form, &$form_state) {
+function fm_statement_filter_validate($form, &$form_state) {
+	// Return the user where they came from if nothing was selected
+	if (isset($form_state['values']['aname']) && !strlen($form_state['values']['aname'])) {
+		form_set_error('aname', '');
+	}
 	// TODO implement switch that distinguishes between master and regular account
 	// Parse account name and insert account-ID
 	if (isset($form_state['values']['aname'])) {
@@ -390,61 +406,10 @@ function fm_user_statement_filter_validate($form, &$form_state) {
 /**
  * Redirects the user to the new account statement
  */
-function fm_user_statement_filter_submit($form, &$form_state) {
+function fm_statement_filter_submit($form, &$form_state) {
 	$form_state['redirect'] = array('fratler/transaction/statement/' . $form_state['values']['aid']);
 }
 
-/**
- * Page-Callback. Display all transactions in the system.
- * TODO Pagination / CSS-crap
- *
- */
-function fm_display_all_transactions() {
-	$style 	= FMTransactionStyle::FM_FULL; 
-	$header	= fratler_money_format_header($style, 't'); 
-
-	$query = db_select('fratler_money_currents', 't');
-	// Filter out counter-bookings
-	$query->where('(t.sid = 0) OR (t.sid != 0 AND t.amount > 0)');
-//	fm_build_filter_query($query);
-	
-	$count_query = clone $query;
-	$count_query->addExpression('COUNT(t.tid)');
-
-	$query = $query->extend('PagerDefault')->extend('TableSort');
-	$query
-	  ->fields('t', array('tid', 'ttype', 'rid', 'sid', 'iid', 'txt', 'amount', 'balance', 'tstamp', 'signature'))
-	  ->limit(variable_get('fm_pager'))
-	  ->orderByHeader($header)
-	  ->setCountQuery($count_query);
-
-	$transactions = $query->execute();
-
-	$rows = array();
-
-	foreach ($transactions as $transaction) {
-		$transaction->balance_sid = fm_get_balance($transaction->sid, $transaction->tstamp);
-		$rows[] = fratler_money_format_row($transaction, $style);
-	}
-
- 
-
-/*
- * Filters are on hold for now
- * 	$build['sort_form']	= drupal_get_form('fm_transaction_filter_form');
- */
-	$build['transactions'] = array(
-		'#theme'	=> 'table',
-		'#header'	=> $header,
-		'#empty'	=> t('No transactions available.'),
-		'#rows'		=> $rows,
-		'#sticky'	=> true,
-		'#attributes'	=> array('class' => array('fm_transaction')),	
-	);
-	$build['pager']	= array('#markup' => theme('pager'));
-
-	return $build;
-}
 
 function fm_transaction_filter_form($form, &$form_state) {
 	$form['filters'] = array(
@@ -578,8 +543,11 @@ function fm_display_transaction($entity = false, $style = FMTransactionStyle::FM
 	if (!$entity)
 		return drupal_not_found();
 
-	if ($entity->rid != $user->uid && !isset($entity->counter) && $entity->sid != 0) 
+	if ($entity->rid != $user->uid && !isset($entity->counter) && $entity->sid != 0)  {
+		debug('swapping');
 		$style = $style | FMTransactionStyle::FM_SID;
+	}	
+
 	// If we're adjusting, swap FM_BAL_RID with FM_BAL_SID
 	if ($entity->sid == 0)
 		$style = $style ^ FMTransactionStyle::FM_BAL_SID | FMTransactionStyle::FM_BAL_RID;
@@ -592,7 +560,7 @@ function fm_display_transaction($entity = false, $style = FMTransactionStyle::FM
 	drupal_add_css(drupal_get_path('module', 'fratler_money') . '/styles/fratler_money_main.css');
 
 	return theme('table', array(
-		'header'	=> fratler_money_format_header($style),
+		'header'	=> fratler_money_format_header($style, false),
 		'empty'		=> t('No transactions available.'),
 		'rows'          => array(fratler_money_format_row($entity, $style)),
 		'sticky'        => true,
@@ -635,22 +603,20 @@ function fratler_money_format_row($entity, $format = FMTransactionStyle::FM_DEFA
 			'data'	=> format_date($entity->tstamp, 'short'),
 		);
 
-	// If we're displaying the counter-booking, we have to invert
 	if ($format & FMTransactionStyle::FM_SID)
 		$row['sid'] = array(
-			'data'	=> $entity->sid == 0 ? t('-----') : _fm_format_account($entity->sid), 
+			'data'	=> $entity->sid == 0 ? t('-----') : (isset($entity->sid_name) ? $entity->sid_name : _fm_format_account($entity->sid)), 
 		);
 
-	// If we're displaying the counter-booking, we have to invert
 	if ($format & FMTransactionStyle::FM_RID) {
 		$row['rid'] = array(
-			'data'	=> _fm_format_account($entity->rid), 
+			'data'	=> isset($entity->rid_name) ? $entity->rid_name : _fm_format_account($entity->rid),
 		);
 	}
 
 	if ($format & FMTransactionStyle::FM_TTYPE)
 		$row['ttype'] = array(
-			'data'	=> taxonomy_term_load($entity->ttype)->name,
+			'data'	=> isset($entity->ttype_name) ? $entity->ttype_name : taxonomy_term_load($entity->ttype)->name,
 			'title'	=> taxonomy_term_load($entity->ttype)->description,
 		);
 
@@ -706,7 +672,7 @@ function fratler_money_format_row($entity, $format = FMTransactionStyle::FM_DEFA
  * @return
  * 	An associative array with the properly formatted values.
  */
-function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $table_prefix = '') {
+function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $table_prefix = null) {
 	// Make things a bit easier
 	$header 	= array();
 
@@ -730,23 +696,21 @@ function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $
 		$header['sid'] = array(
 			'data'		=> t('Sender'),
 			'type'		=> 'property',
-			'specifier'	=> 'sid',
-#			'specifier'	=> $format & FMTransactionStyle::FM_STATEMENT ? null : 'sid',
+			'specifier'	=> 'sid_name',
 		);
 
 	if ($format & FMTransactionStyle::FM_RID)
 		$header['rid'] = array(
 			'data'		=> t('Account'),
 			'type'		=> 'property',
-			'specifier'	=> 'rid',
-#			'specifier'	=> $format & FMTransactionStyle::FM_STATEMENT ? null : 'rid',
+			'specifier'	=> 'rid_name',
 		);
 
 	if ($format & FMTransactionStyle::FM_TTYPE)
 		$header['ttype'] = array(
 			'data'		=> t('Type'),
 			'type'		=> 'property',
-			'specifier'	=> 'ttype',
+			'specifier'	=> 'ttype_name',
 		);
 
 	if ($format & FMTransactionStyle::FM_TXT)
@@ -787,9 +751,13 @@ function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $
 		);
 
 	// Add fields and prefixes if required
-	foreach ($header as $key => $child) 
-		if ($key != 'fingerprint')	// Skip the fingerprint
-			$header[$key]['field'] = ($table_prefix ? $table_prefix. '.' : '') . ($key == 'balance_rid' || $key == 'balance_sid') ? 'balance' : $key;
+	if ($table_prefix !== false) {
+		foreach ($header as $key => $child) 
+			// Skip the fingerprint
+			if ($key != 'fingerprint') {
+				$header[$key]['field'] = ($table_prefix ? $table_prefix. '.' : '') . ($key == 'balance_rid' || $key == 'balance_sid') ? 'balance' : $key;
+			}
+	}
 
 	return $header;
 }
@@ -850,6 +818,8 @@ function fm_access($context, $entity = null) {
 	}
 	// Display statements
 	else if ($context == 'statement') {
+		if ($entity && $entity->uid == 0)
+			return false;
 		if (!$entity || $entity->uid == $user->uid)
 			return user_access('display own transactions') || user_access('display all transactions') || user_access('display other transactions');
 		else
@@ -916,7 +886,7 @@ function fratler_money_transaction_hash_verify($entity) {
 	$entity = clone $entity;
 
 	// Kill the stuff that can't be used for verification
-	unset($entity->signature, $entity->counter, $entity->balance_sid, $entity->balance_rid);
+	unset($entity->signature, $entity->counter, $entity->balance_sid, $entity->balance_rid, $entity->sid_name, $entity->rid_name, $entity->ttype_name);
 
 	// If it's a counter-booking, swap rid/sid back
 	if (isset($entity->sid) && $entity->sid != 0 && $entity->amount < 0)
@@ -1095,20 +1065,23 @@ class FratlerMoneyTransactionController
 
 			// OK, we saved the original transaction; if we're to do a counter (and only if!!!), work some magic.
 			if ($entity->counter) {
+				$c_entity = clone $entity;
 				// to prevent the loop of death.
-				$entity->counter = !$entity->counter;	
+				$c_entity->counter = !$entity->counter;	
 
 				// Reset tid
-				$entity->tid = 0;
+				$c_entity->tid = 0;
 				// Switch rid and sid
-				$entity->rid ^= $entity->sid ^= $entity->rid ^= $entity->sid;
+			       	$c_entity->rid = $entity->sid;
+				$c_entity->sid = $entity->rid;
 				// Invert amount
-				$entity->amount = -$entity->amount;
+				$c_entity->amount = -$entity->amount;
 				// Recalculate balance
-				$entity->balance = fm_get_balance($entity->rid) + $entity->amount;
+				$c_entity->balance = fm_get_balance($c_entity->rid) + $c_entity->amount;
+
 
 				// And finally: shove it down this function again :)
-				$this->save($entity);
+				$this->save($c_entity);
 			}
 
 			return $entity;
@@ -1130,15 +1103,21 @@ class FratlerMoneyTransactionController
 		}
 
 		/**
-		 * buildQuery cannot replace existing fields, so here's part 2
+		 * Loads the entity and does some cosmetics
 		 */
 		public function load($ids = array(), $conditions = array()) {
 			$entities = parent::load($ids, $conditions);
 			foreach ($entities as $entity) {
-				$entity->rid = $entity->rid_act;
-				unset($entity->rid_act);
+				// Replace the actual sid/rid values (swapping pt II)
 				$entity->sid = $entity->sid_act;
 				unset($entity->sid_act);
+				$entity->rid = $entity->rid_act;
+				unset($entity->rid_act);
+				
+				// Attach a field with the rendered sid/rid account names for sorting purposes
+				$entity->rid_name 	= _fm_format_account($entity->rid);
+				$entity->sid_name 	= _fm_format_account($entity->sid);
+				$entity->ttype_name 	= taxonomy_term_load($entity->ttype)->name;
 			}
 			return $entities;
 		}
@@ -1367,7 +1346,7 @@ function _fm_autocomplete($string = '', $direction = 'rid') {
 	$matches = array();
 	$roles = array();
 
-	if (strlen($string) > 2) {
+	if (strlen($string) > 1) {
 		// If the user doesn't have permission to transfer to every registered user, fetch the user-roles that may participate in transactions
 		if (!user_access('ignore barred recipient'))
 			// Grab the roles that are allowed to participate
