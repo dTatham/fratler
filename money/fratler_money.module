@@ -245,6 +245,7 @@ function fm_account_overview($target = null) {
 				// @todo this needs some fine tuning RE what actually gets rendered as a link and what not
 				l(_fm_format_account($balance->aid), 'fratler/transaction/statement/' . $balance->aid),
 				_fm_monetize($balance->balance),
+				l(format_date($balance->tstamp, 'short'), 'fratler/transaction/view/' . $balance->last_trans),
 				array('data' => hash('crc32b', $balance->signature), 'class' => array('fm_fingerprint', !$sig_ok ? 'fm_check_fail' : '')),
 				array('data' => $sig_ok ? '&#x2714' : '&#x2718', 'class' => array($sig_ok ? 'fm_check_ok' : 'fm_check_fail')),
 			);
@@ -253,7 +254,7 @@ function fm_account_overview($target = null) {
 
 	$build = array(
 		'#theme'	=> 'table',
-		'#header'	=> array(t('Account'), t('Balance'), array('data' => t('Fingerprint'), 'colspan' => 2)),
+		'#header'	=> array(t('Account'), t('Balance'), t('Last transaction'), array('data' => t('Fingerprint'), 'colspan' => 2)),
 		'#rows'		=> $rows,
 		'#sticky'	=> true,
 		'#empty'	=> t('No accounts available.'),
@@ -543,10 +544,10 @@ function fm_display_transaction($entity = false, $style = FMTransactionStyle::FM
 	if (!$entity)
 		return drupal_not_found();
 
-	if ($entity->rid != $user->uid && !isset($entity->counter) && $entity->sid != 0)  {
-		debug('swapping');
+	drupal_set_title(t('Transaction #@tid', array('@tid' => $entity->tid)));
+
+	if ($entity->rid != $user->uid && !isset($entity->counter) && $entity->sid != 0) 
 		$style = $style | FMTransactionStyle::FM_SID;
-	}	
 
 	// If we're adjusting, swap FM_BAL_RID with FM_BAL_SID
 	if ($entity->sid == 0)
@@ -595,7 +596,7 @@ function fratler_money_format_row($entity, $format = FMTransactionStyle::FM_DEFA
 
 	if ($format & FMTransactionStyle::FM_TID)
 		$row['tid'] = array(
-			'data'	=> $entity->tid,
+			'data'	=> l($entity->tid, 'fratler/transaction/view/' . $entity->tid),
 		);
 
 	if ($format & FMTransactionStyle::FM_TSTAMP)
@@ -696,21 +697,21 @@ function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $
 		$header['sid'] = array(
 			'data'		=> t('Sender'),
 			'type'		=> 'property',
-			'specifier'	=> 'sid_name',
+#			'specifier'	=> 'sid_name',		// Useless as they'd be sorted by uid
 		);
 
 	if ($format & FMTransactionStyle::FM_RID)
 		$header['rid'] = array(
 			'data'		=> t('Account'),
 			'type'		=> 'property',
-			'specifier'	=> 'rid_name',
+#			'specifier'	=> 'rid_name',	
 		);
 
 	if ($format & FMTransactionStyle::FM_TTYPE)
 		$header['ttype'] = array(
 			'data'		=> t('Type'),
 			'type'		=> 'property',
-			'specifier'	=> 'ttype_name',
+#			'specifier'	=> 'ttype_name',	// Also useless for the same reason
 		);
 
 	if ($format & FMTransactionStyle::FM_TXT)
@@ -753,8 +754,8 @@ function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $
 	// Add fields and prefixes if required
 	if ($table_prefix !== false) {
 		foreach ($header as $key => $child) 
-			// Skip the fingerprint
-			if ($key != 'fingerprint') {
+			// Skip rid, sid, ttype and the fingerprint
+			if ($key != 'rid' && $key != 'sid' && $key != 'ttype' && $key != 'fingerprint') {
 				$header[$key]['field'] = ($table_prefix ? $table_prefix. '.' : '') . ($key == 'balance_rid' || $key == 'balance_sid') ? 'balance' : $key;
 			}
 	}
