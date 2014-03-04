@@ -1,0 +1,67 @@
+<?php
+function fratler_master_schema() {
+	$schema = array();
+	$schema['fratler_master'] = array(
+			'fields' => array(
+				'mid'	=> array(
+					'type'		=> 'serial',
+					'unsigned'	=> true,
+					'not null'	=> true,
+					'description'	=> 'The ID of the Master Account.',
+					),
+				'active' => array(
+					'type'		=> 'int',
+					'size'		=> 'tiny',
+					'unsigned'	=> true,
+					'description'	=> 'On/Off switch.',
+					),
+				'name'	=> array(
+					'type'		=> 'varchar',
+					'description'	=> 'The display name.',
+					'length'	=> 128,
+					),
+				'machine_name'	=> array(
+					'type'		=> 'varchar',
+					'description'	=> 'The interal, machine readable name.',
+					'length'	=> 128,
+					),
+				'description'	=> array(
+					'type'		=> 'varchar',
+					'description'	=> 'The userID of the recipient (negative values reserved for master-accounts)',
+					'length'	=> 255,
+					),
+				),
+
+				'indexes' => array(
+					'idx_mid'	=> array('mid'),
+					'idx_active'	=> array('active'),
+					),
+				'primary key' => array('mid'),
+				'description' => 'Base table for Master Account entities.',
+				);
+	return $schema;
+}
+/**
+ * Implements hook_install()
+ */
+function fratler_master_install() {
+	// Some basic settings
+	variable_set('fm_locale', 'C');
+	variable_set('fm_pager', 10);
+	variable_set('fm_trans_max', 10);
+	variable_set('fm_overdraw_limit', 0);
+	variable_set('fm_trans_admin', 0);
+
+
+}
+
+
+function fratler_master_uninstall() {
+/*
+	variable_del('fm_locale');
+	variable_del('fm_pager');
+	variable_del('fm_trans_max');
+	variable_del('fm_overdraw_limit');
+	variable_del('fm_trans_admin');
+*/
+}

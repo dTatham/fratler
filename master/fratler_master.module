@@ -1,0 +1,157 @@
+<?php
+/**
+ * @file
+ * Adds Master Accounts to Fratler Money, that are not attached to a specific userID
+ * (c) 2014 Daniel Zauner aka dTatham the Horrible
+ */
+
+/**
+ * Implements hook_permission()
+ */
+function fratler_master_permission() {
+	return array();
+}
+
+/**
+ * Implements hook_menu()
+ */
+function fratler_master_menu() {
+	return array(
+		'admin/config/fratler/master' => array(
+			'title'		=> 'Fratler Master',
+			'description'	=> 'Configure Master Accounts for fratler_suite.',
+			'page callback'	=> 'drupal_get_form',
+			'page arguments' => array('fratler_master_admin'),
+			'access arguments' => array('access administration pages'),
+			'file'		=> 'fma_admin.inc',
+		),
+	);
+}
+
+
+/**
+ * Implements hook_entity_info()
+ */
+function fratler_master_entity_info() {
+	return array(
+		'fratler_master' => array(
+			'label'		=> t('Fratler Master Account'),
+			'controller class' => 'FratlerMasterController',
+			'base table'	=> 'fratler_master',
+			'uri callback'	=> 'fratler_master_uri',
+			'fieldable'	=> false,
+			'entity keys'	=> array(
+				'id'	=> 'mid',
+				'label'	=> 'name',
+			),
+		),
+	);
+}
+
+/**
+ * FratlerMasterControllerInterface definition 
+ * Still not sure whether this interface is 100% necessary, but hey - can't harm, right?!
+ *
+ * @see hook_entity_info_alter()
+ */
+interface FratlerMasterControllerInterface
+	extends DrupalEntityControllerInterface {
+		public function create();
+		public function save($entity);
+		public function delete($entity);
+	}
+
+/**
+ * FratlerMasterController extends DrupalDefaultEntityController
+ *
+ * Holds data of a given Master Account
+ */
+class FratlerMasterController
+	extends DrupalDefaultEntityController
+	implements FratlerMasterControllerInterface {
+
+		/**
+		 * Create and return a new Master Account entity
+		 */
+		public function create() {
+			$entity = new stdClass();
+			$entity->mid	= 0;	// Master Account ID
+			$entity->active	= true;	// Toggle active/inactive state
+			$entity->name	= null;	// Human readable name of the Master Account
+			$entity->machine_name = null; // Machine_Name of the Master Account
+			$entity->description = ''; // Your nana's apple pie recipe.
+
+			return $entity;
+		}
+
+
+		/**
+		 * Save Master Account fields
+		 */
+		public function save($entity) {
+			// Tell the world...
+			module_invoke_all('fma_presave', $entity);
+
+			// Determine whether we're creating a new account or updating an existing
+			$primary_keys = $entity->mid ? 'mid' : array();
+
+			// Drop it in the DB
+			drupal_write_record('fratler_master', $entity, $primary_keys);
+
+			// Really tell the world...
+			module_invoke_all(empty($entity->mid) ? 'fma_new' : 'fma_update', $entity);
+
+			// Back to you, Tom!
+			return $entity;
+		}
+
+		/**
+		 * Delete Master Account.
+		 * TODO This is where shit is going to happen!!! Need to define checks to make sure
+		 * 	all transactions involving a given MA have been moved to other accounts before we can clean this one
+		 */
+		public function delete($entity) {
+			$this->delete_multiple(array($entity));
+		}
+		public function delete_multiple($entities) {
+			debug('Brotha, you are screwed!!!');
+		}
+	}
+
+
+/**
+ * Load a single Master Account object from the database.
+ *
+ * @param mid
+ * 	The Master Account-ID
+ *
+ * @param reset
+ * 	Whether to reset the fratler_master_load_multiple cache.
+ *
+ * @return
+ * 	A fully populated Master Account object or FALSE if nothing could be matched to $mid.
+ */
+function fratler_master_load($mid = NULL, $reset = false) {
+	$mids = isset($mid) ? array($mid) : array();
+	$master = fratler_master_load_multiple($mids, array(), $reset);
+	return $master ? reset($master) : false;
+}
+
+/**
+ * Load multiple Master Account objects from the database.
+ *
+ * @param mids
+ * 	An array of Master Account-IDs
+ *
+ * @param conditions
+ * 	Not used as marked deprecated.
+ *
+ * @param reset
+ * 	Whether to reset the fratler_master_load_multiple cache.
+ *
+ * @return
+ * 	An array of Master Account objects indexed by mid.
+ */
+function fratler_master_load_multiple($mids = false, $conditions = array(), $reset = false) {
+	return entity_load('fratler_master', $mids, $conditions, $reset);
+}
