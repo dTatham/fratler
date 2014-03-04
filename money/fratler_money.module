@@ -1400,17 +1400,6 @@ function _fm_switch($account) {
 	return false;
 }
 
-function fratler_master_load($account) {
-	debug(__FUNCTION__);
-	return false;
-}
-
-function fratler_master_load_by_name($account) {
-	// STUB!!!
-	// FIXME
-	debug(__FUNCTION__);
-	return false;
-}
 
 /*
  * Helper function to determine the proper way, an account-name should be displayed.
