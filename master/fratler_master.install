@@ -20,14 +20,14 @@ function fratler_master_schema() {
 					'description'	=> 'The display name.',
 					'length'	=> 128,
 					),
-				'machine_name'	=> array(
+				'mach_name'	=> array(
 					'type'		=> 'varchar',
-					'description'	=> 'The interal, machine readable name.',
+					'description'	=> 'The machine name.',
 					'length'	=> 128,
 					),
 				'description'	=> array(
 					'type'		=> 'varchar',
-					'description'	=> 'The userID of the recipient (negative values reserved for master-accounts)',
+					'description'	=> 'A short description of the given account',
 					'length'	=> 255,
 					),
 				),
@@ -46,12 +46,7 @@ function fratler_master_schema() {
  */
 function fratler_master_install() {
 	// Some basic settings
-	variable_set('fm_locale', 'C');
-	variable_set('fm_pager', 10);
-	variable_set('fm_trans_max', 10);
-	variable_set('fm_overdraw_limit', 0);
-	variable_set('fm_trans_admin', 0);
-
+#	variable_set('fm_locale', 'C');
 
 }
 
