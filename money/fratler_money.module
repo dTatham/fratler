@@ -628,7 +628,6 @@ function fm_display_transaction($entity = false, $style = FMTransactionStyle::FM
 	global $user;
 
 	drupal_set_title(t('Transaction #@tid', array('@tid' => $entity->tid)));
-	var_export($entity);
 
 	if ($entity->rid != $user->uid && !isset($entity->counter) && $entity->sid != 0) 
 		$style = $style | FMTransactionStyle::FM_SID;
