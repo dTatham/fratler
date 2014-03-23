@@ -983,7 +983,7 @@ function fratler_money_hash_verify($entity) {
 				l(t('Inspect account'), 'fratler/statement/' . check_plain($entity->aid)));
 			drupal_set_message(t('An error occured while verifying the signature for !name\'s account; ' . 
 				'please contact an admin immediately.', 
-				array('!name' => l(check_plain($entity->name), 'fratler/statement/'.check_plain($entity->aid)))), 'error');
+				array('!name' => l(check_plain($entity->name), 'fratler/statement/'.check_plain($entity->aid)))), 'error', false);
 		}
 		else {
 			watchdog('fratler_money', 'Signature-Mismatch for transaction #:tid detected. Your database might have been compromised!',
@@ -993,7 +993,7 @@ function fratler_money_hash_verify($entity) {
 			drupal_set_message(t('An error occured while verifying the signature for transaction #!tid. ' . 
 				'Involved accounts were locked to avoid further corruption. ' .
 				'please contact an admin immediately.', 
-				array('!tid' => l(check_plain($entity->tid), 'fratler/transaction/view/'.check_plain($entity->tid)))), 'error');
+				array('!tid' => l(check_plain($entity->tid), 'fratler/transaction/view/'.check_plain($entity->tid)))), 'error', false);
 
 			// Reset the FMAc signatures for the involved parties to prevent them from making a mess
 			db_query('UPDATE {fratler_money_balances} SET blocked = 1, signature = NULL WHERE aid IN (:aids)', array(':aids' => array(check_plain($entity->rid), check_plain($entity->sid))));
@@ -1218,6 +1218,7 @@ class FratlerMoneyTransactionController
 
 		/**
 		 * Loads the entity and does some cosmetics
+		 * TODO do we really need $message?!
 		 */
 		public function load($ids = array(), $conditions = array(), $message = true) {
 			$entities = parent::load($ids, array());
@@ -1228,7 +1229,7 @@ class FratlerMoneyTransactionController
 				// Clean up the account names and txt (avoid xss etc.)
 				$entity->rid_name	= check_plain($entity->rid_name);
 				$entity->sid_name	= check_plain($entity->sid_name);
-				$entity->txt		= filter_xss($entity->txt, array('br', 'em', 'strong','cite','b','i','u'))
+				$entity->txt		= filter_xss($entity->txt, array('br', 'em', 'strong','cite','b','i','u'));
 
 				// Attach a field with the transaction type - we'll need it probably
 				$entity->ttype_name 	= taxonomy_term_load($entity->ttype)->name;
@@ -1237,7 +1238,7 @@ class FratlerMoneyTransactionController
 		}
 
 		/**
-		 * Transactions are at this stage not meant to be deleted, so this is just a stub
+		 * Transactions are not meant to be deleted at this stage, so this is just a stub
 		 */
 		public function delete_multiple($entities) {
 			debug('Transactions are not meant to be deleted. At the moment.');

@@ -34,7 +34,7 @@ function fratler_money_schema() {
 					'description'	=> 'The userID of the initiator (if it was a 3rd party transaction)',
 					),
 				'txt'	=> array(
-					'type'		=> 'varchar',
+					'type'		=> 'text',
 					'description'	=> 'A note that goes with the transaction',
 					),
 				'amount' => array(
