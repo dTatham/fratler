@@ -628,9 +628,6 @@ function fm_transaction_filter_form($form, &$form_state) {
 function fm_display_transaction($entity = false, $style = FMTransactionStyle::FM_DEFAULT) {
 	global $user;
 
-	if (!$entity)
-		return drupal_not_found();
-
 	drupal_set_title(t('Transaction #@tid', array('@tid' => $entity->tid)));
 
 	if ($entity->rid != $user->uid && !isset($entity->counter) && $entity->sid != 0) 
@@ -1284,6 +1281,7 @@ class FratlerMoneyAccountController
 			$account->tstamp = 0;
 			$account->last_trans = 0;	// tid of the last transaction
 			$account->signature = fratler_money_hash($account);
+			$account->signature_ok = true;
 
 			return $account;
 		}
@@ -1293,8 +1291,12 @@ class FratlerMoneyAccountController
 
 			$primary_keys = $account->aid ? 'aid' : array();
 
-			// Resign the account
-			$account->signature = fratler_money_hash($account);
+			// Resign the account if the previous signature was OK. If not, issue a warning and save with invalid signature to avoid masking manipulations.
+			if ($account->signature_ok)
+				$account->signature = fratler_money_hash($account);
+			else 
+				drupal_set_message(t('Account !account\'s signature was corrupted. Changes were saved, but the signature was NOT updated.', 
+							array('!account' => l(check_plain($account->name), 'fratler/statement/' . $account->aid))), 'warning');
 			db_merge('fratler_money_balances')
 				->key(array('aid' => $account->aid))
 				->fields(array(
@@ -1310,6 +1312,25 @@ class FratlerMoneyAccountController
 			module_invoke_all(empty($primary_keys)? 'entity_insert' : 'entity_update', $account, 'fratler_money_account');
 
 			return $account;
+		}
+
+		/**
+		 * Load FMAc-object
+		 *
+		 * @param aids
+		 * 	The array of FMAc-IDs.
+		 *
+		 * @param conditions
+		 * 	Legacy; not used.
+		 */
+		public function load($aids = array(), $conditions = array()) {
+			$accounts = parent::load($aids, $conditions);
+
+			foreach ($accounts as $account) {
+				$account->signature_ok = fratler_money_hash_verify($account);
+			}
+
+			return $accounts;
 		}
 
 		/**
@@ -1364,13 +1385,14 @@ function fratler_money_user_insert(&$edit, $user, $category) {
 	fratler_money_account_save($account);
 }
 /**
- * Same as fratler_money_user_insert(). Catch changes to the username and adapt the FMAc accordingly.
+ * Same as fratler_money_user_insert(). Catch changes to the username and/or status and adapt the FMAc accordingly.
  * @see fratler_money_user_insert()
  */
 function fratler_money_user_update(&$edit, $user, $category) {
 	$account = fratler_money_account_load($user->uid);
 	if ($account) {
 		$account->name = check_plain(format_username($user));
+		$account->active = $user->status;
 		fratler_money_account_save($account);
 	}
 }
