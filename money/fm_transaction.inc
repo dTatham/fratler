@@ -47,11 +47,11 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
 		// Grab all the accounts the user can transfer from
 		$sids = array();
 		foreach	(module_implements('fm_transaction_sids') as $module)
-			foreach (module_invoke($module, 'fm_transaction_sids') as $sid => $name)
+			foreach (module_invoke($module, 'fm_transaction_sids', $user, $type) as $sid => $name)
 				$sids[$sid] = $name;
 
 		// Make sure user-accounts show up first
-		krsort($sids);
+		natcasesort($sids);
 
 		if (!$entity->counter)		// Don't need the sid when adjusting
 			$entity->sid = 0;
@@ -60,10 +60,10 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
 				'#type'		=> user_access('transfer other funds') ? 'textfield' : 'value',
 				'#title'	=> t('Sender'),
 				'#required'	=> true,
-				'#default_value' => isset($sids[$user->uid]) ? _fm_format_account($user->uid) : _fm_format_account(key($sids)),
-				'#autocomplete_path' => 'fratler/fm_autocomplete',
+				'#default_value' => isset($sids[$user->uid]) ? fratler_money_format_account($user->uid) : fratler_money_format_account(key($sids)),
+				'#autocomplete_path' => 'fratler/fm_autocomplete/sid/' . $type,
 			);
-		else
+ 		else 
 			$form['sid'] = array(
 				'#type'		=> 'select',
 				'#title'	=> t('Sender'),
@@ -80,7 +80,7 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
 			'#required'	=> true,
 			'#default_value' => ($entity->tid <> 0) ? _fm_format_account($entity->rid) : (!$entity->counter && !user_access('adjust other accounts') ? _fm_format_account($user->uid) : ''),	// TODO: finalize this one once dev is complete
 			'#disabled'	=> (!$entity->counter && !user_access('adjust other accounts')) ? true : false,
-			'#autocomplete_path' => 'fratler/fm_autocomplete',
+			'#autocomplete_path' => 'fratler/fm_autocomplete/rid/' . $type,
 		);
 
 		$form['amount'] = array(
@@ -172,19 +172,20 @@ function fm_transaction_form_validate($form, &$form_state) {
 
 	// Sender is only interesting, if we're transferring
 	if ($entity->counter) {
-		$sid = _fm_switch(check_plain($form_state['values']['sid']));
+		$sid = fratler_money_account_load_by_name(check_plain($form_state['values']['sid']));
 		if (!$sid)
-			form_set_error('sid', t('Sender invalid.'));
+			form_set_error('sid', t('@account invalid.', array('@account' => $form['sid']['#title'])));
 		else
-			$entity->sid = $sid;
-	} else
+			$entity->sid = $sid->aid;
+	} 
+	else
 		$entity->sid = 0;	// Juuuust in case...
 	
-	$rid = _fm_switch(check_plain($form_state['values']['rid']));
+	$rid = fratler_money_account_load_by_name(check_plain($form_state['values']['rid']));
 	if (!$rid)
 		form_set_error('rid', t('@account invalid.', array('@account' => $form['rid']['#title'])));
 	else
-		$entity->rid = $rid;
+		$entity->rid = $rid->aid;
 
 	// If we're adjusting or someone is making a transaction in someone else's name, 
 	// set the initiator-ID (iid).

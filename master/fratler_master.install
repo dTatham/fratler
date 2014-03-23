@@ -46,17 +46,50 @@ function fratler_master_schema() {
  */
 function fratler_master_install() {
 	// Some basic settings
-#	variable_set('fm_locale', 'C');
 
 }
 
+/**
+ * After re-enabling, set the active FMAs to "active" in the FMAc-Table
+ */
+function fratler_master_enable() {
+	// Grab the actives
+	$mids = db_query('SELECT -m.mid FROM {fratler_master} m WHERE m.active = 1')->fetchCol('mid');
+
+	// Set the FMAcs active
+	if ($mids) {
+		$updated = db_query('UPDATE {fratler_money_balances} b SET b.active = 1 WHERE b.aid IN (:mids)', array(':mids' => $mids))->rowCount();
+		drupal_set_message(format_plural($updated, 'Activated one Master Account.', 'Activated @count Master Accounts.'), 'status');
+	}
+}
+
+/**
+ * Set the active FMAs to "inactive" in the FMAc-Table
+ */
+function fratler_master_disable() {
+	// Grab the actives
+	$mids = db_query('SELECT -m.mid FROM {fratler_master} m')->fetchCol('mid');
+
+	// Set the FMAcs active
+	if ($mids) {
+		$updated = db_query('UPDATE {fratler_money_balances} b SET b.active = 0 WHERE b.aid IN (:mids)', array(':mids' => $mids))->rowCount();
+		drupal_set_message(format_plural($updated, 'Deactivated one Master Account.', 'Deactivated @count Master Accounts.'), 'status');
+	}
+}
 
 function fratler_master_uninstall() {
-/*
-	variable_del('fm_locale');
-	variable_del('fm_pager');
-	variable_del('fm_trans_max');
-	variable_del('fm_overdraw_limit');
-	variable_del('fm_trans_admin');
-*/
+	// Throw out the existing Masters
+	$mids = db_query('SELECT -f.mid FROM {fratler_master} f')->fetchCol('mid');
+	if (!empty($mids)) {
+		$transaction = db_transaction();
+
+		try {
+			db_delete('fratler_money_balances')->condition('aid', $mids, 'IN')->execute();
+		} catch (Exception $e) {
+			$transaction->rollback();
+			watchdog_exception('fratler_master', $e);
+			throw $e;
+		}
+	}
+
 }

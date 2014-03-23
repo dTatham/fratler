@@ -11,6 +11,11 @@
 function fratler_master_permission() {
 	$perms = array();
 
+	$perms['bypass inactive masters'] = array(
+		'title'	=> t('Bypass inactive Master Accounts'),
+		'description' => t('Ignore the active/inactive state of any Master Account.'),
+	);
+
 	foreach (fratler_master_load_multiple() as $master)
 		$perms += _fm_permission_render($master);
 	return $perms;
@@ -30,7 +35,7 @@ function fratler_master_menu() {
 			'file'		=> 'fma_admin.inc',
 		),
 		'admin/config/fratler/master/add' => array(
-			'title'		=> 'Add new Master Account',
+			'title'		=> 'Create Master Account',
 			'description'	=> 'Create a new Master Account',
 			'page callback'	=> 'drupal_get_form',
 			'page arguments' => array('fratler_master_admin_edit', entity_get_controller('fratler_master')->create()),
@@ -64,6 +69,15 @@ function fratler_master_menu() {
 			'type'		=> MENU_CALLBACK,
 			'file'		=> 'fma_admin.inc',
 		),
+		'admin/config/fratler/master/%fratler_master/toggle' => array(
+			'title'		=> 'Delete Master Account',
+			'description'	=> 'Delete Master Account',
+			'page callback'	=> 'fratler_master_admin_toggle', 
+			'page arguments' => array(4),
+			'access arguments' => array('access administration pages'),
+			'type'		=> MENU_CALLBACK,
+			'file'		=> 'fma_admin.inc',
+		),
 	);
 }
 
@@ -73,8 +87,8 @@ function fratler_master_menu() {
  * @param account
  * 	The fully-loaded account object.
  */
-function fratler_master_overview($account = false) {
-	debug(__FUNCTION__);
+function fratler_master_overview($account) {
+	drupal_set_title(t('Master Account @name', array('@name' => $account->name)));
 	$rows = array();
 
 	// Fetch the account object
@@ -89,20 +103,24 @@ function fratler_master_overview($account = false) {
 		'title'		=> array('data' => t('Name'), 'header' => true),
 		'content'	=> array('data' => $account->name, 'colspan' => 2),
 	);
-	$rows['active'] = array(
-		'title'		=> array('data' => t('Active'), 'header' => true),
-		'content'	=> array('data' => $account->active ? '&#x2714' : '&#x2718', 'colspan' => 2),
+	$rows['mach_name'] = array(
+		'title'		=> array('data' => t('Machine name'), 'header' => true),
+		'content'	=> array('data' => $account->mach_name, 'colspan' => 2),
 	);
 	$rows['description'] = array(
 		'title'		=> array('data' => t('Description'), 'header' => true),
 		'content'	=> array('data' => $account->description, 'colspan' => 2),
 	);
+	$rows['active'] = array(
+		'title'		=> array('data' => t('Active'), 'header' => true),
+		'content'	=> array('data' => $account->active ? '&#x2714' : '&#x2718', 'colspan' => 2),
+	);
 	$rows['ass_roles_adj'] = array(
-		'title'		=> array('data' => t('Assigned Roles:<br/>Adjustments'), 'header' => true),
-		'content'	=> array('data' => theme('item_list', array('items' => array_values(_fma_get_roles($account, 'adjust')))), 'colspan' => 2),
+		'title'		=> array('data' => t('Adjustment roles'), 'header' => true, 'title' => t('Roles permitted to adjust the account.')),
+		'content'	=> array('data' => theme('item_list', array('items' => array_values(_fma_get_roles($account, 'adjustment')))), 'colspan' => 2),
 	);
 	$rows['ass_roles_trans'] = array(
-		'title'		=> array('data' => t('Assigned Roles:<br/>Transfers'), 'header' => true),
+		'title'		=> array('data' => t('Transfer roles'), 'header' => true, 'title' => t('Roles permitted to transfer from the account.')),
 		'content'	=> array('data' => theme('item_list', array('items' => array_values(_fma_get_roles($account, 'transfer')))), 'colspan' => 2),
 	);
 	$rows['balance'] = array(
@@ -113,10 +131,12 @@ function fratler_master_overview($account = false) {
 		'title'		=> array('data' => t('Total transactions'), 'header' => true),
 		'content'	=> array('data' => count(fratler_money_get_transactions($account->mid)), 'colspan' => 2, 'class' => array('fm_numeric')),
 	);
-	$rows['last_trans'] = array(
-		'title'		=> array('data' => t('Last transaction'), 'header' => true),
-		'content'	=> array('data' => l(t('#@id (@date)', array('@date' => format_date($acc_data->tstamp, 'short'), '@id' => $acc_data->last_trans)), 'fratler/transaction/view/' . $acc_data->last_trans), 'colspan' => 2),
-	);
+	// Hide the last transaction in case there's none
+	if ($acc_data->last_trans) 
+		$rows['last_trans'] = array(
+			'title'		=> array('data' => t('Last transaction'), 'header' => true),
+			'content'	=> array('data' => l(t('#@id (@date)', array('@date' => format_date($acc_data->tstamp, 'short'), '@id' => $acc_data->last_trans)), 'fratler/transaction/view/' . $acc_data->last_trans), 'colspan' => 2),
+		);
 	$rows['fingerprint'] = array(
 		'title'		=> array('data' => t('Fingerprint'), 'header' => true),
 		'fprint'	=> array('data' => hash('crc32b', $acc_data->signature), 'class' => array('fm_fingerprint', !$sig_ok ? 'fm_check_fail' : '')),
@@ -169,14 +189,14 @@ function _fma_get_roles($account, $action = null) {
  * 	The fully-loaded Master Account object.
  *
  * @param action
- * 	The action in question ('transfer' or 'adjust'); returns both if action == NULL.
+ * 	The action in question ('transfer' or 'adjustment'); returns both if action == NULL.
  *
  * @return
  * 	An array holding the necessary permission-data indexed by $permission.
  */
 function _fm_permission_render($account, $action = null) {
 	$perms = array();
-	if (!$action || $action == 'adjust')
+	if (!$action || $action == 'adjustment')
 		$perms['adjust master ' . $account->mach_name] = array(
 			'title'	=> t('%acc_name: Adjust Master Account', array('%acc_name' => $account->name)),
 			);
@@ -253,6 +273,7 @@ class FratlerMasterController
 			$entity->mid	= 0;	// Master Account ID
 			$entity->active	= true;	// Toggle active/inactive state
 			$entity->name	= null;	// Human readable name of the Master Account
+			$entity->mach_name = null;
 			$entity->description = ''; // Your nana's apple pie recipe.
 
 			return $entity;
@@ -262,6 +283,12 @@ class FratlerMasterController
 		 * Manipulate the loaded elements to match fratler_suite specs (i.e. invert mid)
 		 */
 		public function load($mids = array(), $conditions = array()) {
+			// In case we got negative mids, invert them before loading
+			if ($mids) {
+				foreach ($mids as $key=>$mid)
+					if ($mid < 0) $mids[$key] = -$mid;
+			}
+
 			$entities = parent::load($mids, $conditions);
 
 			foreach ($entities as $key => $entity) {
@@ -296,15 +323,35 @@ class FratlerMasterController
 			// Determine whether we're creating a new account or updating an existing
 			$primary_keys = $entity->mid ? 'mid' : array();
 
+
+			// Just a precaution. Sanitize the name.
+			$entity->name = check_plain($entity->name);
+
 			// Drop it in the DB
-			drupal_write_record('fratler_master', $entity, $primary_keys);
+			$state = drupal_write_record('fratler_master', $entity, $primary_keys);
+
+			// Create the account
+			if ($state == SAVED_NEW) {
+				$account = entity_get_controller('fratler_money_account')->create(-$entity->mid);
+				$account->active = $entity->active;
+				drupal_set_message(t('Created Master Account %master.', array('%master' => $account->name)), 'status');
+				fratler_money_account_save($account);
+			}
+			else if ($state == SAVED_UPDATED) {	// Merge update-data
+				$account = fratler_money_account_load(-$entity->mid);
+				$account->active = $entity->active;
+				$account->name = $entity->name;
+				drupal_set_message(t('Updated Master Account %master.', array('%master' => $account->name)), 'status');
+				fratler_money_account_save($account);
+			}
+
 
 			// Revert mID in case we're editing
 			if ($entity->mid > 0)
 				$entity->mid = -$entity->mid;
 
 			// Really tell the world...
-			module_invoke_all(empty($primary_keys) ? 'entity_insert' : 'entity_update', $entity, 'fralter_master');
+			module_invoke_all(empty($primary_keys) ? 'entity_insert' : 'entity_update', $entity, 'fratler_master');
 
 			// Back to you, Tom!
 			return $entity;
@@ -314,12 +361,38 @@ class FratlerMasterController
 		 * Delete Master Account.
 		 * TODO This is where shit is going to happen!!! Need to define checks to make sure
 		 * 	all transactions involving a given MA have been moved to other accounts before we can clean this one
+		 *
+		 * @param entity
+		 * 	The fully-loaded Master Account object to be deleted.
 		 */
 		public function delete($entity) {
-			$this->delete_multiple(array($entity));
+			$this->deleteMultiple(array($entity));
 		}
-		public function delete_multiple($entities) {
+		/**
+		 * Delete multiple Master Accounts.
+		 *
+		 * @param entities
+		 * 	An array holding the fully-loaded Master Account objects to be deleted.
+		 *
+		 * @param targets
+		 * 	If the MAs are not empty, e.g. have transactions assigned to them, rebook them to these entities. 
+		 * 	If $target is NULL and there're still transactions attached to an $entity, cancel the whole thing.
+		 * 	The array targets are matched by keys: $targets[$key] has to hold the fully-loaded target MA.
+		 */
+		public function deleteMultiple($entities) {
 			$mids = array();
+
+			// Check each master account if they're empty. If so, re-assign the transactions to the corresponding target.
+			// If not, bitch and cry!!!
+
+			foreach ($entities as $entity) {
+				$tids = fratler_money_get_transactions($entity->mid);
+				if ($tids) {
+					debug($tids, 'tids');
+					drupal_set_message(t('Could not reassign transactions from @entity.', array('@entity' => $entity->name)), 'error');
+					return false;
+					}
+			}
 
 			if (!empty($entities)) {
 				$transaction = db_transaction();
@@ -337,10 +410,13 @@ class FratlerMasterController
 					watchdog_exception('fratler_master', $e);
 					throw $e;
 				}
+				// Remove the deleted FMA from the accounts list
+				entity_get_controller('fratler_money_account')->deleteMultiple(fratler_money_account_load_multiple($mids));
+
+				drupal_set_message(format_plural(count($entities), 'Deleted Master Account %master.', 'Deleted @count Master Accounts.', array('%master' => reset($entities)->name)), 'status');
 			}
 		}
  	}
-
 
 /**
  * Load a single Master Account object from the database.
@@ -431,40 +507,104 @@ function fratler_master_load_by_name($name) {
 	return reset($master);
 }
 
-function fratler_money_reassign($tid, $moo, $foo) {
-	debug(__FUNCTION__, 'stub');
-}
 
-function fratler_money_account_load($tid) {
-	debug(__FUNCTION__, 'stub');
-	$acc = new stdClass();
-	$acc->aid = $tid;
-	$acc->last_trans = 5;
-	$acc->tstamp = time();
-	$acc->signature = null;
-	return $acc;
-}
-
-function fratler_money_hash_verify($entity) {
-	debug('change my name');
-	return fratler_money_transaction_hash_verify($entity);
+/**
+ * Run a quick query against the table to see if the machine_name is already taken.
+ *
+ * @param mach_name
+ * 	The new machine name.
+ *
+ * @return
+ * 	1 if the name is already taken.
+ */
+function _fma_check_mach_name($mach_name) {
+	return db_query('SELECT m.mid FROM {fratler_master} m WHERE mach_name = :mach_name', array(':mach_name' => $mach_name))->rowCount();
 }
 
 /**
- * Fetches an array of all transactions an account-ID is involved in.
+ * Implements hook_fm_autocomplete
+ * Supplies additional candidates for autocomplete fields.
  *
- * @param aid
- * 	The account ID in question.
- *
+ * @param string
  * @return
- * 	An array holding all tids.
+ * 	An array with the possible candidates.
  */
-function fratler_money_get_transactions($aid) {
-	debug(__FUNCTION__);
-	$query = db_select('fratler_money_currents', 'f')
-		->fields('f', array('tid'))
-		->condition(db_or()->condition('rid', $aid)->condition('sid', $aid))
-	       	->execute();
+function fratler_master_fm_autocomplete($string = '', $direction = 'rid', $type = 'transfer') {
+	$matches = array();
 
-	return $query->fetchCol('tid');
+	$query = new EntityFieldQuery();
+	$query->entityCondition('entity_type', 'fratler_master')
+		->propertyCondition('name', '%' . $string . '%', 'LIKE');
+
+	if (!user_access('bypass inactive masters'))
+		$query->propertyCondition('active', 1);
+
+	$candidates = $query->execute();
+	$masters = fratler_master_load_multiple(array_keys($candidates['fratler_master']));
+
+	foreach ($masters as $master) {
+		if ($type == 'transfer') {
+			// User tries to transfer funds from an account with insufficient permissions.
+			if ($direction == 'sid' && !user_access(key(_fm_permission_render($master, $type))))
+				continue;
+		}
+		if ($type == 'adjustment') {
+			// User tries to adjust with insufficient permissions
+			if ($direction == 'rid' && !user_access(key(_fm_permission_render($master, $type))))
+				continue;
+			if ($direction == 'sid') // Technically, that's not possible, but just in case some smartass fiddles around
+				continue;
+		}
+
+		$matches[$master->name] = '<i>' . $master->name . '</i>';
+	}
+
+	return $matches;
+}
+
+/**
+ * Implements hook_fm_transaction_sids(). Find every account-id that's assigned to a user.
+ * For the regular fratler_money, this is just the current user-account; this only becomes
+ * interesting, once Master Accounts come into play.
+ *      
+ * @param target 
+ *      The user to be checked (ID or object); if none given the current user is checked.
+ *      
+ * @param type  
+ *      The transaction type. It will be checked against the $user's permission.
+ */
+function fratler_master_fm_transaction_sids($target = false, $type = null) {
+	global $user;
+	if (!$target)
+		$target = $user;
+	$masters = fratler_master_load_multiple();
+	$matches = array();
+
+	foreach ($masters as $master) {
+		foreach (array_keys(_fm_permission_render($master, $type)) as $perm) {
+			if (user_access($perm, $target))
+				$matches[$master->mid] = $master->name;
+		}
+	}
+
+	return $matches;
+}
+
+/**
+ * API-Description.
+ * Implements hook_fm_autocomplete()
+ *
+ * @param string
+ * 	A string that's matched against the available MAs.
+ *
+ * @param direction
+ *	The direction in which the transactions goes. Defaults to 'rid'.
+ *	If set to sid, it will additionally filter by user-roles and display only those that match the assigned roles.
+ *
+ * @param type
+ * 	The transaction-type in question; can be either 'transfer' or 'adjustment'. This applies only if $direction is set to 'sid'.
+ *
+ */
+function hook_fm_autocomplete($string = '', $direction = 'rid', $type = 'transfer') {
+	return array();
 }

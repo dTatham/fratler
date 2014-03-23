@@ -5,6 +5,22 @@
  */
 
 /**
+ * Menu callback: toggle active/inactive
+ *
+ * @param account
+ * 	The fully-loaded Master Account.
+ */
+function fratler_master_admin_toggle($account) {
+	$account->active = !$account->active;
+
+	fratler_master_save($account);
+
+	if (drupal_get_destination() != array('destination' => current_path()))
+		drupal_goto(drupal_get_destination());
+	else
+		drupal_goto('admin/config/fratler/master');
+}
+/**
  * Page callback to display Master Account administration.
  */
 function fratler_master_admin($form, &$form_state) {
@@ -28,11 +44,13 @@ function fratler_master_admin($form, &$form_state) {
 				'name'		=> l($master->name, 'admin/config/fratler/master/' . -$master->mid),
 				'active'	=> $master->active ? '&#x2714' : '&#x2718',
 				'description'	=> $master->description,
-				'operations'	=> array('data' => array(
-					'#type'		=> 'link',
-					'#title' 	=> t('edit'),
-					'#href'		=> 'admin/config/fratler/master/' . -$master->mid . '/edit',
-				)),
+				'operations'	=> t('!view !statement !edit !toggle !permissions', array(
+							'!view' 	=> l(t('view'), 'admin/config/fratler/master/' . -$master->mid),
+							'!statement'	=> l(t('statement'), 'fratler/statement/' . $master->mid),
+							'!edit' 	=> l(t('edit'), 'admin/config/fratler/master/' . -$master->mid . '/edit'),
+							'!toggle' 	=> l(t('toggle'), 'admin/config/fratler/master/' . -$master->mid . '/toggle', array('query' => drupal_get_destination())),
+							'!permissions'	=> l(t('permissions'), 'admin/people/permissions', array('fragment' => 'module-fratler_master', 'query' => drupal_get_destination())),
+						)),
 			);
 		}
 	}
@@ -56,6 +74,15 @@ function fratler_master_admin_edit($form, &$form_state, $account) {
 		'#required'	=> true,
 		'#default_value' => $account->name,
 	);
+	$form['mach_name'] = array(
+		'#type'		=> 'machine_name',
+		'#default_value' => $account->mach_name,
+		'#machine_name'	=> array(
+			'exists'	=> '_fma_check_mach_name',
+			'source'	=> array('fma_name'),
+		),
+	);
+
 	$form['active'] = array(
 		'#type'		=> 'checkbox',
 		'#title'	=> t('Active?'),
@@ -113,9 +140,9 @@ function fratler_master_admin_edit_submit($form, &$form_state) {
 	$raw->name 	= check_plain($form_state['values']['fma_name']);
 	$raw->active 	= check_plain($form_state['values']['active']);
 	$raw->description = filter_xss($form_state['values']['description'], array('em', 'strong','cite','b','i','u'));
+	$raw->mach_name	= check_plain($form_state['values']['mach_name']);
 
 	$master = fratler_master_save($raw);
-	drupal_set_message(t('Master Account successfully @action.', array('@action' => ($raw->mid == 0) ? t('created') : t('edited'))), 'status');
 
 	$form_state['redirect'] = 'admin/config/fratler/master';
 }
@@ -153,7 +180,6 @@ function fratler_master_admin_delete($form, &$form_state, $account) {
 		foreach ($alt_accounts as $alt_account)
 			$options[$alt_account->mid] = $alt_account->name;
 
-		debug($alt_accounts, 'alts');
 	}
 
 	$form['cont'] = array(
@@ -162,30 +188,39 @@ function fratler_master_admin_delete($form, &$form_state, $account) {
 		'#description'	=> t('Please confirm you want to delete this Master Account. <b>This action cannot be undone.</b>'),
 		'#collapsible'	=> false,
 	);
-
-	if (count($tids)) {
-		$form['cont']['alt_acc'] = array(
-			'#type'		=> 'select',
-			'#title'	=> t('Alternative Master Account'),
-			'#description'	=> format_plural(count($tids), 'There is currently <b>one</b> transaction on this Master Account. Please select an alternate Master Account which will hold the transaction.',
-									'There are currently <b>@count</b> transactions on this Master Account. Please select an alternate Master Account which will hold the transactions.'),
-			'#options'	=> $options,
-			'#required'	=> true,
-		);
-		$form['tids'] = array(
-			'#type'		=> 'value',
-			'#value'	=> $tids,
+	if (!$form_state['rebuild']) {
+		if (count($tids)) {
+			$form['cont']['alt_acc'] = array(
+				'#type'		=> 'select',
+				'#title'	=> t('Alternative Master Account'),
+				'#description'	=> format_plural(count($tids), 'There is currently <b>one</b> transaction on this Master Account. Please select an alternate Master Account which will hold the transaction.',
+										'There are currently <b>@count</b> transactions on this Master Account. Please select an alternate Master Account which will hold the transactions.'),
+				'#options'	=> $options,
+				'#required'	=> true,
+			);
+		}
+		$form['cont']['confirm_merge'] = array(
+			'#type'		=> 'checkbox',
+			'#title'	=> t('I know what I am doing'),
+			'#default_value' => false,
 		);
 	}
 
-	$form['cont']['confirm'] = array(
-		'#type'		=> 'checkbox',
-		'#title'	=> t('I know what I am doing'),
-		'#required'	=> true,
-	);
+	// This way we avoid drupal pre-checking it when rebuilding
+	else
+		$form['cont']['confirm_del'] = array(
+			'#type'		=> 'checkbox',
+			'#title'	=> t('I know what I am doing'),
+			'#default_value' => false,
+		);
+
 	$form['account'] = array(
 		'#type'		=> 'value',
 		'#value'	=> $account,
+	);
+	$form['tids'] = array(
+		'#type'		=> 'value',
+		'#value'	=> $tids,
 	);
 	$form['cont']['actions'] = array(
 		'#type'		=> 'actions',
@@ -199,22 +234,26 @@ function fratler_master_admin_delete($form, &$form_state, $account) {
 	);
 	return $form;
 }
+function fratler_master_admin_delete_validate($form, &$form_state) {
+	if ((isset($form_state['values']['confirm_del']) && !$form_state['values']['confirm_del']) || 
+		(isset($form_state['values']['confirm_merge']) && !$form_state['values']['confirm_merge']))
+		form_set_error('confirm', t('Please confirm that you know what you are doing.'));
+}
 
 function fratler_master_admin_delete_submit($form, &$form_state) {
-	debug(__FUNCTION__);
 	$account 	= $form_state['values']['account'];
-	// Ok, before we can do shit, we have to move shit.
-	if (isset($form_state['values']['tids'])) {
-		$tids 		= $form_state['values']['tids'];
-		$alt_account 	= $form_state['values']['alt_acc'];
-
-		foreach ($tids as $tid) {
-			fratler_money_reassign($tid, $account->mid, $alt_account);
-		}
-	}	
-
-	fratler_master_delete($account);
-	drupal_set_message(t('Master Account deleted.'), 'status');
 	$form_state['redirect'] = 'admin/config/fratler/master';
+
+	// Ok, before we can do shit, we have to move shit.
+	if ($form_state['values']['tids']) {
+		if (fratler_money_reassign(fratler_money_account_load($account->mid), fratler_money_account_load($form_state['values']['alt_acc'])))
+			$form_state['rebuild'] = true;
+		else
+			drupal_set_message(t('Operation could not be completed.'), 'error');
+		return;
+	}	
+	else 
+		fratler_master_delete($account);
+
 }
 

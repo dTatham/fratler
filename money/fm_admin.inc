@@ -113,3 +113,16 @@ function fratler_money_admin_form_validate($form, &$form_state) {
 
 	
 }
+
+
+/**
+ * Recreate user accounts.
+ * This is to re-create user accounts in case they were accidentally deleted or sth.
+ */
+function fratler_money_admin_recreate_accounts() {
+	debug('checking database');
+	$aids = db_query('SELECT b.aid FROM {fratler_money_balances} b WHERE aid > 0')->fetchCol('aid');
+	debug(count($aids), 'found aids');
+
+	return array();
+}

@@ -4,7 +4,6 @@ core = 7.x
 package = fratler_suite
 #dependencies = <somemod>
 dependencies[] = taxonomy
-dependencies[] = date_api
 
 configure = admin/config/fratler/money
 
