@@ -628,6 +628,7 @@ function fm_display_transaction($entity = false, $style = FMTransactionStyle::FM
 	global $user;
 
 	drupal_set_title(t('Transaction #@tid', array('@tid' => $entity->tid)));
+	var_export($entity);
 
 	if ($entity->rid != $user->uid && !isset($entity->counter) && $entity->sid != 0) 
 		$style = $style | FMTransactionStyle::FM_SID;
@@ -1041,6 +1042,7 @@ function _fm_generate_hash($entity, $setting) {
 	// Kill the stuff that can't be used for hashing
 	unset($entity->signature, $entity->signature_ok, $entity->counter, $entity->balance_sid, $entity->balance_rid, $entity->sid_name, $entity->rid_name, $entity->ttype_name);
 
+
 	// Do the hashy
 	// Since drupal does not always respect the order of the entity-obejt, we'll convert the
 	// entity back to an array, sort it by keys and do some necessary cosmetics.
@@ -1049,9 +1051,11 @@ function _fm_generate_hash($entity, $setting) {
 	if (isset($data['sid']))	$data['sid']		= (int) $data['sid'];
 	if (isset($data['iid']))	$data['iid']		= (int) $data['iid'];
 	if (isset($data['aid']))	$data['aid']		= (int) $data['aid'];
+	if (isset($data['active']))	$data['active']		= (int) $data['active'];
+	if (isset($data['blocked']))	$data['blocked']	= (int) $data['blocked'];
 	if (isset($data['amount'])) 	$data['amount'] 	= number_format($data['amount'], 2, '.', '');
 	if (isset($data['balance'])) 	$data['balance'] 	= number_format($data['balance'], 2, '.', '');
-	if (isset($data['tstamp'])) 	$data['tstamp'] 	= number_format($data['tstamp'], 2, '.', '');
+	if (isset($data['tstamp'])) 	$data['tstamp'] 	= (int) $data['tstamp'];
 	if (isset($data['last_trans']))	$data['last_trans']	= (int) $data['last_trans'];
 	ksort($data);
 
@@ -1352,12 +1356,17 @@ class FratlerMoneyAccountController
 		 * 	A fully-loaded FMAc-object or FALSE if no match was found.
 		 */
 		public function loadByName($name) {
-			$result = new EntityFieldQuery();
-			$result->entityCondition('entity_type', 'fratler_money_account')
-				->propertyCondition('name', $name)->execute();
+			$query = new EntityFieldQuery();
+			$query->entityCondition('entity_type', 'fratler_money_account')
+				->propertyCondition('name', $name);
+			
+			$result = $query->execute();
+			$account = array();
 
-			if (isset($result['fratler_money_account']))
-				return $this->load(array_keys($result['fratler_money_account']));
+			if (isset($result['fratler_money_account']) && count($result['fratler_money_account']) == 1)
+				$account = $this->load(array_keys($result['fratler_money_account']));
+
+			return reset($account);
 
 		}
 
@@ -1966,7 +1975,7 @@ function fm_get_error($error) {
 
 		case FMErrors::TTYPE_INVALID:		return t('The transaction-type is invalid.');
 
-		case FMErrors::SIGNATURE_MISMATCH:	return t('Signature mismatch detected. Please notify administrator immediately!');
+		case FMErrors::SIGNATURE_MISMATCH:	return '';	// Signature-errors are handled by fratler_money_hash_verify().
 
 		default: return t('An unknown error occured. Your transaction could not be completed.');
 	}
