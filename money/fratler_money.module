@@ -478,7 +478,6 @@ function fm_statement_filter_validate($form, &$form_state) {
 	if (isset($form_state['values']['aname']) && !strlen($form_state['values']['aname'])) {
 		form_set_error('aname', '');
 	}
-	// TODO implement switch that distinguishes between master and regular account
 	// Parse account name and insert account-ID
 	if (isset($form_state['values']['aname'])) {
 		$acc = fratler_money_account_load_by_name($form_state['values']['aname']);
@@ -978,7 +977,7 @@ function fratler_money_hash_verify($entity) {
 	// If there's a mismatch, start the bitching and screaming!
 	if (!$verdict) {
 		if (isset($entity->aid)) {
-			watchdog('fratler_money', 'Signature-Mismatch for :user\'s account detected. Your database might have been compromised!',
+			watchdog('fratler_money', 'Signature-Mismatch for :user\'s account detected. Account has been locked. Your database might have been compromised!',
 				array(':user' => check_plain($entity->name)),
 				WATCHDOG_EMERGENCY,     // Yep. It's bad.
 				l(t('Inspect account'), 'fratler/statement/' . check_plain($entity->aid)));
@@ -991,7 +990,8 @@ function fratler_money_hash_verify($entity) {
 				array(':tid' => check_plain($entity->tid)),
 				WATCHDOG_EMERGENCY,
 				l(t('Inspect transaction'), 'fratler/transaction/view/' . check_plain($entity->tid)));
-			drupal_set_message(t('An error occured while verifying the signature for transaction #!tid; ' . 
+			drupal_set_message(t('An error occured while verifying the signature for transaction #!tid. ' . 
+				'Involved accounts were locked to avoid further corruption. ' .
 				'please contact an admin immediately.', 
 				array('!tid' => l(check_plain($entity->tid), 'fratler/transaction/view/'.check_plain($entity->tid)))), 'error');
 
@@ -1130,7 +1130,7 @@ class FratlerMoneyTransactionController
 			$entity->rid	= 0;		// Recipient-ID
 			$entity->sid	= 0;		// Sender-ID
 			$entity->iid	= 0;		// Initiator-ID
-			$entity->amount = 0.0;		// Amount... d'uh
+			$entity->amount = 0;		// Amount... d'uh
 			$entity->tstamp = 0;		// Timestamp	
 			$entity->txt	= null;		// Transaction-Text
 			$entity->ttype	= 0;		// Transaction-Type (taxonomy reference)
@@ -1138,6 +1138,7 @@ class FratlerMoneyTransactionController
 			$entity->balance = 0;		// The recipient's balance after a successful transaction
 
 			$entity->counter = true; 	// Whether we need a counter-transaction (false = adjustment)
+			$entity->signature_ok = true;	// Signature is always OK in blank transactions.
 			return $entity;
 		}
 
@@ -1221,10 +1222,16 @@ class FratlerMoneyTransactionController
 		public function load($ids = array(), $conditions = array(), $message = true) {
 			$entities = parent::load($ids, array());
 			foreach ($entities as $entity) {
-				// Attach a field with the transaction type - we'll need it probably
-				$entity->ttype_name 	= taxonomy_term_load($entity->ttype)->name;
 				// Check the signature - it's gonna happen sooner or later anyways ;)
 				$entity->signature_ok 	= fratler_money_hash_verify($entity, true);
+
+				// Clean up the account names and txt (avoid xss etc.)
+				$entity->rid_name	= check_plain($entity->rid_name);
+				$entity->sid_name	= check_plain($entity->sid_name);
+				$entity->txt		= filter_xss($entity->txt, array('br', 'em', 'strong','cite','b','i','u'))
+
+				// Attach a field with the transaction type - we'll need it probably
+				$entity->ttype_name 	= taxonomy_term_load($entity->ttype)->name;
 			}
 			return $entities;
 		}
@@ -1301,7 +1308,7 @@ class FratlerMoneyAccountController
 				->key(array('aid' => $account->aid))
 				->fields(array(
 					'balance'	=> $account->balance,
-					'name'		=> $account->name,
+					'name'		=> check_plain($account->name),
 					'active'	=> (int)$account->active,
 					'blocked'	=> (int)$account->blocked,
 					'tstamp'	=> $account->tstamp,
@@ -1327,7 +1334,8 @@ class FratlerMoneyAccountController
 			$accounts = parent::load($aids, $conditions);
 
 			foreach ($accounts as $account) {
-				$account->signature_ok = fratler_money_hash_verify($account);
+				$account->name 		= check_plain($account->name);
+				$account->signature_ok	= fratler_money_hash_verify($account);
 			}
 
 			return $accounts;
@@ -1798,7 +1806,7 @@ function fratler_money_fm_transaction_dry_run($entity) {
 	// Step 2: check the signatures of the involved accounts
 	foreach ($accounts as $account) 
 		// If the signatures don't match, shit has officially hit the fan.
-		if (!fratler_money_hash_verify($account)) 
+		if (!$account->signature_ok) 
 			return array(FMErrors::SIGNATURE_MISMATCH => $entity->rid == $account->aid ? 'rid' : 'sid');
 
 

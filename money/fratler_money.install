@@ -8,6 +8,7 @@ function fratler_money_schema() {
 					'unsigned'	=> true,
 					'not null'	=> true,
 					'description'	=> 'The consecutive transaction-ID',
+					'size'		=> 'big',
 					),
 				'ttype'	=> array(
 					'type'		=> 'int',
