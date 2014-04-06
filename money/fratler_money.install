@@ -87,14 +87,19 @@ function fratler_money_schema() {
 				'description'	=> 'The current balance of the given aid',
 				),
 			'active' => array(
+				'type' => 'int',
+				'size' => 'tiny',
+				'description' => 'Whether the account is active or not.',
+			),
+			'state' => array(
 				'type'		=> 'int',
-				'size'		=> 'tiny',
-				'description'	=> 'Whether the account is active or not.',
+				'size'		=> 'normal',
+				'description'	=> 'A bitfield holding the account\'s permissions.',
 			),
 			'blocked' => array(
 				'type'		=> 'int',
 				'size'		=> 'tiny',
-				'description'	=> 'Whether the account is allowed to participate in transactions.',
+				'description'	=> 'Whether the account is blocked by the system, e.g. due to a signature mismatch.',
 			),
 			'name' => array(
 				'type'		=> 'varchar',
@@ -190,25 +195,18 @@ function fratler_money_install() {
 	variable_set('fm_pager', 10);
 	variable_set('fm_trans_max', 10);
 	variable_set('fm_overdraw_limit', 0);
-	variable_set('fm_trans_admin', 0);
 
+	drupal_set_message(t('Please remember seting the !permissions and !rebuild the Fratler Account table afterwards to enable Fratler Accounts. ' .
+			'You can also find the link in the !admin configuration.', array(
+                        '!permissions' => l(t('permissions'), 'admin/people/permissions', array('query' => drupal_get_destination())),
+                        '!rebuild' => l(t('rebuild'), 'admin/config/fratler/accounts/recreate_accounts', array('fragment' => 'module-fratler_accounts', 'query' => drupal_get_destination())),
+			'!admin' => l('Fratler Accounts', 'admin/config/fratler/account'))),
+		'warning');
 }
 
 function fratler_money_enable() {
-
-	$ops = array(
-		'operations' 	=> array(),
-		'title'		=> t('Creating accounts for existing users'),
-		'progress_message' => t('Creating account @current of @total.'),
-		'finished'	=> '_fm_batch_done',
-	);
-	$new_aids = db_query('SELECT u.uid, u.status FROM {users} u WHERE NOT EXISTS (SELECT 1 FROM {fratler_money_balances} b WHERE b.aid = u.uid) AND uid <> 0');
-	foreach ($new_aids as $user) {
-		// Try to find the latest balance
-		$balance = db_query('SELECT c.balance, c.tstamp, c.tid FROM {fratler_money_currents} c WHERE rid = :uid ORDER BY c.tstamp DESC LIMIT 1', array(':uid' => $user->uid))->fetchObject();
-		$ops['operations'][] = array('_fm_batch_process', array($user->uid, $user->status, $balance));
-	}
-	batch_set($ops);
+	// Rebuild the permissions
+	fratler_accounts_rebuild_permissions();
 }
 
 
@@ -226,6 +224,5 @@ function fratler_money_uninstall() {
 	variable_del('fm_pager');
 	variable_del('fm_trans_max');
 	variable_del('fm_overdraw_limit');
-	variable_del('fm_trans_admin');
 
 }

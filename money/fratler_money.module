@@ -6,82 +6,232 @@
  */
 
 /**
+ * Defines the Permission-Bitmastk.
+ * 
+ * FAcPerm::PARTICIPATE and FAcPerm::ALL are internal only.
+ *
+ * The corresponding drupal-permissions-array is rendered by _fac_permission_render().
+ */
+interface FAcPerm {
+	// Display
+	const DISPLAY_OWN	= 2;
+	const DISPLAY_ALL	= 4;
+	const DISPLAY_ACC	= 8;
+
+	// Transactions
+	const RECEIVE		= 16;
+	const TRANSFER_OWN	= 32;
+	const TRANSFER_ALL	= 64;
+	const ADJUST_OTHER	= 128;
+	const ADJUST_OWN	= 256;
+
+	// Special permissions
+	const OVERDRAW		= 512;
+	const IGNORE_BAR	= 1024;
+	const EXCEED_TRANS	= 2048;
+	const EXCEED_OVERDRAW	= 4096;
+
+
+	// Internal
+	const PARTICIPATE	= 8192;
+	const DISPLAY		= 6;
+	const TRANSFER		= 96;
+	const ADJUST		= 384;
+	const ALL		= 8190;
+}
+
+/**
+ * Render the drupal-permissions array.
+ *
+ * @param bitfield
+ * 	The bitfield holding the permissions-data.
+ *
+ * @return
+ * 	An array holding the rendered permissions, indexed by permission-system name.
+ *
+ * @see FAcPerm
+ */
+function _fac_permission_render($bitfield) {
+	$permissions = array();
+
+	if ($bitfield & FAcPerm::DISPLAY_OWN)
+		$permissions['display own statement'] = array(
+			'title'		=> t('Display own statement'),
+			'key'		=> FAcPerm::DISPLAY_OWN,
+		);
+	if ($bitfield & FAcPerm::DISPLAY_ALL)
+		$permissions['display all statements'] = array(
+			'title'		=> t('Display all statements'),
+			'key'		=> FAcPerm::DISPLAY_ALL,
+		);
+	if ($bitfield & FAcPerm::DISPLAY_ACC)
+		$permissions['display accounts only'] = array(
+			'title'		=> t('Display only accounts'),
+			'description'	=> t('Allow the users to only display account-balances.'),
+			'key'		=> FAcPerm::DISPLAY_ACC,
+		);
+
+	if ($bitfield & FAcPerm::RECEIVE)
+		$permissions['receive transfers'] = array(
+			'title'		=> t('Receive transfers'),
+			'key'		=> FAcPerm::RECEIVE,
+		);
+	if ($bitfield & FAcPerm::TRANSFER_OWN)
+		$permissions['transfer own funds'] = array(
+			'title'		=> t('Transfer from own account'),
+			'key'		=> FAcPerm::TRANSFER_OWN,
+		);
+	if ($bitfield & FAcPerm::TRANSFER_ALL)
+		$permissions['transfer all funds'] = array(
+			'title'		=> t('Transfer from all accounts'),
+			'key'		=> FAcPerm::TRANSFER_ALL,
+		);
+	if ($bitfield & FAcPerm::ADJUST_OTHER)
+		$permissions['adjust other accounts'] = array(
+			'title'		=> t('Adjust other accounts'),
+			'description'	=> t('Users may adjust any account but their own.'),
+			'key'		=> FAcPerm::ADJUST_OTHER,
+		);
+	if ($bitfield & FAcPerm::ADJUST_OWN)
+		$permissions['adjust own account'] = array(
+			'title'		=> t('Adjust own account'),
+			'description'	=> t('Users may adjust their own account.'),
+			'key'		=> FAcPerm::ADJUST_OWN,
+		);
+	
+	if ($bitfield & FAcPerm::OVERDRAW)
+		$permissions['overdraw accounts'] = array(
+			'title'		=> t('Overdraw accounts'),
+			'description'	=> t('Users may overdraw accounts up to the system wide limit.'),
+			'key'		=> FAcPerm::OVERDRAW,
+		);
+	if ($bitfield & FAcPerm::IGNORE_BAR)
+		$permissions['ignore account bar'] = array(
+			'title'		=> t('Ignore account-bar'),
+			'description'	=> t('Users may conduct transactions with any account that aren\'t blocked by the syste (regardless of the account\'s permission).'),
+			'key'		=> FAcPerm::IGNORE_BAR,
+		);
+	if ($bitfield & FAcPerm::EXCEED_TRANS)
+		$permissions['exceed transaction limit'] = array(
+			'title'		=> t('Exceed transaction limit'),
+			'key'		=> FAcPerm::EXCEED_TRANS,
+		);
+	if ($bitfield & FAcPerm::EXCEED_OVERDRAW)
+		$permissions['exceed overdraw limit'] = array(
+			'title'		=> t('Exceed overdraw limit'),
+			'key'		=> FAcPerm::EXCEED_OVERDRAW,
+		);
+
+	return $permissions;
+}
+
+/**
+ * Calculates the permissions-bitmask out of a given user's permissions.
+ *
+ * @param user
+ * 	A fully-loaded user object.
+ */
+function _fac_permission_calculate($user) {
+	$status 	= 0;
+	$all_permissions	= _fac_permission_render(FAcPerm::ALL);
+	$user_roles 	= user_role_permissions($user->roles);
+
+	$flattened	= array();
+	array_walk_recursive($user_roles, function($a,$b) use (&$flattened) { $flattened[] = $b; });
+
+	foreach ($flattened as $checkme) {
+		if (array_key_exists($checkme, $all_permissions)) 
+			$status |= $all_permissions[$checkme]['key'];
+	}
+
+	if ($status & FAcPerm::RECEIVE || $status & FAcPerm::TRANSFER || $status & FAcPerm::ADJUST || $status & FAcPerm::DISPLAY)
+		$status |= FAcPerm::PARTICIPATE;
+
+	return $status;
+
+}
+
+/**
+ * Check the user-permissions against a context.
+ *
+ * @param context
+ * 	The context to be checked.
+ *
+ * @param account
+ * 	The fully-loaded FMAc-Object or NULL if the current user is to be checked.
+ *
+ * @param object
+ * 	The object to be checked (if required).
+ *
+ * @return
+ * 	TRUE if the account has sufficient permissions, otherwise FALSE.
+ *
+ * @see FAcPerm
+ * @see user_access()
+ */
+function fratler_accounts_access($context, $account = NULL, $object = NULL) {
+	global $user;
+	$user_account = ($account && $account->is_own) ? $account : fratler_money_account_load($user->uid);
+
+	// hook_menu() substitues integer values with paths, so we pass the constants as strings
+	if (is_string($context))
+		$context = constant($context);
+	
+	// TODO fumble in Master Accounts...
+	// invoke hook_permission?
+
+
+	// Scenario: Display account-overview (balances)
+	// We're checking: aid == user->uid OR permission DISPLAY_ACC
+	if ($context & FAcPerm::DISPLAY_ACC && $account) {
+		return $account->is_own || $user_account->state & FAcPerm::DISPLAY_ACC || $user_account->state & FAcPerm::DISPLAY_ALL;
+	}
+
+
+	if (!$account)
+		$account = $user_account;
+	if (!$account) // In case no account was found, we have no business here.
+		return false;
+
+	// Check if the user is allowed to display stuff.
+	// Check if the user can view other accounts ... TODO MASTER!!!
+	if ($context & FAcPerm::DISPLAY && !$account->is_own && !$object) {
+		return $user_account->state & FAcPerm::DISPLAY_ALL;
+	}
+
+
+	// When $object is given in context DISPLAY, a transaction is viewed.
+	// Expects $context to be a fully-loaded transaction object.
+	// All involved parties are allowed to see transaction-singlets.
+	if ($context & FAcPerm::DISPLAY && $object) {
+		// The user making a transaction always only gets to see the counter-transaction
+		if ($object->amount < 0 && $object->sid != 0)
+			return $object->sid == $account->aid;
+		else
+			return $object->rid == $account->aid || $object->iid == $account->aid;
+	}
+	if ($context & FAcPerm::ADJUST && $object) {
+		if ($object->rid == $account->aid)
+			return $account->state & FAcPerm::ADJUST_OWN;
+		else
+			return $account->state & FAcPerm::ADJUST_OTHER;
+	}
+
+
+	// Fallback: check if the account is permitted to do $context
+	return $account->state & $context;
+}
+
+/**
  * Implements hook_permission()
+ * @return
+ * 	The fully rendered permissions.
+ *
+ * @see _fac_permission_render()
+ * @see FAcPerm
  */
 function fratler_money_permission() {
-	return array(
-		// Transfers
-		'receive transfers' => array(
-			'title'		=> t('Receive transfers'),
-			'description'	=> t('Allows the user to participate in the transaction-system (i.e. receive funds).'),
-		),
-		'ignore barred recipient' => array(
-			'title'		=> t('Ignore transaction-ban'),
-			'description'	=> t('Allows the user to ignore perform transactions with no regard to the "%rcvt"-Setting.', array('%rcvt' => t('Receive transfers'))),
-			'restrict access' => true,
-		),
-		'transfer own funds'	=> array(
-			'title'		=> t('Transfer own funds'),
-			'description'	=> t('Permit the user to transfer own funds to other accounts.'),
-		),
-		'transfer other funds'	=> array(
-			'title'		=> t('Transfer others\' funds'),
-			'description'	=> t('Permit the user to transfer fund from other accounts.'),
-			'restrict access' => true,
-		),
-
-		// Adjustments
-		'adjust own account' => array(
-			'title'		=> t('Adjust own account'),
-			'description'	=> t('Permit the user to adjust the own account.'),
-			'restrict access' => true,
-		),
-		'adjust other accounts' => array(
-			'title'		=> t('Adjust other accounts'),
-			'description' 	=> t('Give the user permission to adjust other accounts.'),
-			'restrict access' => true,
-		),
-
-		// Transaction-Volume
-		'exceed transaction limit' => array(
-			'title'		=> t('Exceed the transaction limit'),
-			'description'	=> t('Permit the user to exceed the system-wide transaction limit.'),
-			'restrict access' => true,
-		),
-
-		// Overdraws
-		'overdraw own account'	=> array(
-			'title'		=> t('Overdraw own account'),
-			'description'	=> t('The user may overdraw his own account to the system-wide limit.'),
-		),
-		'overdraw other accounts' => array(
-			'title'		=> t('Overdraw other accounts'),
-			'description'	=> t('Permit the user to overdraw other accounts to the system-wide limit.'),
-			'restrict access'	=> true,
-		),
-		'exceed own overdraw'	=> array(
-			'title'		=> t('Exceed own overdraw-limit'),
-			'description'	=> t('The user may exceed the system-wide overdraw-limit.'),
-		),
-		'exceed other overdraws' => array(
-			'title'		=> t('Exceed the overdraw on other accounts'),
-			'description'	=> t('Allow the user to exceed the overdraw on other accounts.'),
-			'restrict access'	=> true,
-		),
-
-		// Views
-		'display own transactions' => array(
-			'title'		=> t('Display own transactions.'),
-		),
-		'display other transactions' => array(
-			'title'		=> t('Display other user\'s transactions.'),
-		),
-		'display all transactions' => array(
-			'title'		=> t('Display all transactions.'),
-			'restrict access'	=> true,
-		),
-
-	);
+	return _fac_permission_render(FAcPerm::ALL);
 }
 
 /**
@@ -92,9 +242,9 @@ function fratler_money_menu() {
 
 
 	// DEVEL SHIT
-	$items['fratler/dev/reassign'] = array(
-		'title'		=> 'Reassign-Nukefield',
-		'page callback'	=> '_fm_nuke_reassign',
+	$items['fratler/dev/perm'] = array(
+		'title'		=> 'Permissions-Nukefield',
+		'page callback'	=> '_fm_nuke_permission',
 		'access callback' => true,
 		'weight'	=> 100,
 		'file'		=> 'fm_nukefield.inc',
@@ -102,7 +252,7 @@ function fratler_money_menu() {
 	);
 
 	// Admin-Page
-	$items['admin/config/fratler/money'] = array(
+	$items['admin/config/fratler/accounts'] = array(
 		'title'		=> 'Fratler Money',
 		'description'	=> 'Configure the bookkeeping entity of the fratler_suite',
 		'page callback'	=> 'drupal_get_form',
@@ -110,118 +260,145 @@ function fratler_money_menu() {
 		'access arguments' => array('access administration pages'),
 		'file'		=> 'fm_admin.inc',
 	);
-	// Recreate user-accounts
-	$items['admin/config/fratler/money/recreate_accounts'] = array(
+	// Rebuild accounts-table and permissiosn
+	$items['admin/config/fratler/accounts/recreate_accounts'] = array(
 		'title'		=> 'Recreate user accounts',
 		'description'	=> 'Recreate user accounts',
-		'page callback'	=> 'fratler_money_admin_recreate_accounts',
+		'page callback'	=> 'fratler_accounts_rebuild_permissions',
+		'page arguments' => array('admin/config/fratler/accounts'),
 		'access arguments' => array('access administration pages'),
-		'file'		=> 'fm_admin.inc',
 		'type'		=> MENU_CALLBACK,
 	);
 
 	// Transactions
-	$items['fratler/transaction'] = array(
-		'title'		=> 'Transactions',
+	$items['fratler/account'] = array(
+		'title'		=> 'Fratler Account',
 		'description'	=> 'Account overview, transfers',
 		'page callback'	=> 'fm_account_overview',
 		'page arguments' => array(null),
-		'access callback' => 'fm_access',
-		'access arguments' => array('menu'),
+		'access callback' => 'fratler_accounts_access',
+		'access arguments' => array('FAcPerm::PARTICIPATE'),
 		'type'		=> MENU_NORMAL_ITEM,
 		'menu_name'	=> 'user-menu',
 	);
-	$items['fratler/transaction/overview'] = array(
+	$items['fratler/account/overview'] = array(
 		'title'		=> 'Overview',
 		'description'	=> 'Display account balances',
-		'page callback'	=> 'fm_account_overview',
-		'access callback' => 'fm_access',
-		'access arguments' => array('menu'),
 		'type'		=> MENU_DEFAULT_LOCAL_TASK,
 		'weight'	=> 0,
 	);
- 	$items['fratler/transaction/new/transfer'] = array(
+	$items['fratler/account/%fratler_money_account/overview'] = array(
+		'title callback' => 'fm_account_overview_title',
+		'title arguments' => array(2),
+		'description'	=> 'Display account balances',
+		'page callback'	=> 'fm_account_overview',
+		'page arguments' => array(2),
+		'access callback' => 'fratler_accounts_access',
+		'access arguments' => array('FAcPerm::DISPLAY_ACC', 2),
+                'type'          => MENU_LOCAL_TASK,
+		'context'       => MENU_CONTEXT_INLINE,
+		'weight'	=> 0,
+	);
+ 	$items['fratler/account/transfer'] = array(
 		'title'		=> 'New transfer',
 		'description'	=> 'Make a new transaction',
 		'page callback'	=> 'drupal_get_form',
 		'page arguments' => array('fm_transaction_form', entity_get_controller('fratler_money_transaction')->create(), 'transfer'),
-		'access callback' => 'fm_access',
-		'access arguments' => array('transfer'),
+		'access callback' => 'fratler_accounts_access',
+		'access arguments' => array('FacPerm::TRANSFER'),
 		'type'		=> MENU_LOCAL_TASK,
 		'file'		=> 'fm_transaction.inc',
 		'weight'	=> 2,
+		'tab_root'	=> 'fratler/account',
+		'tab_parent'	=> 'fratler/account',
 	);
 
-	$items['fratler/transaction/new/adjustment'] = array(
+	$items['fratler/account/adjustment'] = array(
 		'title'		=> 'Adjust account',
 		'description'	=> 'Adjust an account',
 		'page callback' => 'drupal_get_form',
-		'page arguments' => array('fm_transaction_form', entity_get_controller('fratler_money_transaction')->create(), 3),
-		'access callback' => 'fm_access',
-		'access arguments' => array('adjustment'),
+		'page arguments' => array('fm_transaction_form', entity_get_controller('fratler_money_transaction')->create(), 2),
+		'access callback' => 'fratler_accounts_access',
+		'access arguments' => array('FAcPerm::ADJUST'),
 		'type'		=> MENU_LOCAL_TASK,
 		'weight'	=> 3,
 		'file'		=> 'fm_transaction.inc',
+		'tab_root'	=> 'fratler/account',
+		'tab_parent'	=> 'fratler/account',
 	);
 
 	// Views
 	// Transaction-singlet
-	$items['fratler/transaction/view/%fratler_money_transaction'] = array(
+	$items['fratler/transaction/%fratler_money_transaction'] = array(
 		'title'		=> 'View transaction',
 		'description'	=> 'Display a single transaction',
 		'page callback'	=> 'fm_display_transaction',
-		'page arguments' => array(3),
-		'access callback' => 'fm_access',
-		'access arguments' => array(2, 3),
+		'page arguments' => array(2),
+		'access callback' => 'fratler_accounts_access',
+		'access arguments' => array('FAcPerm::DISPLAY', null, 2),
 		'type'          => MENU_LOCAL_TASK,
 		'context'       => MENU_CONTEXT_INLINE,
-		'tab_root'      => 'fratler/transaction',
+		'tab_root'      => 'fratler/account',
+		'tab_parent'	=> 'fratler/account',
 	);
 	// All transactions
-	$items['fratler/transaction/view/all'] = array(
+	$items['fratler/account/all/statement'] = array(
 		'title'		=> 'All transactions',
 		'description'	=> 'Display all transactions',
 		'page callback'	=> 'fm_statement',
-		'page arguments' => array(3),
-		'access arguments' => array('display all transactions'),
+		'page arguments' => array(2),
+		'access callback' => 'fratler_accounts_access',
+		'access arguments' => array('FAcPerm::DISPLAY_ALL'),
+		'type'		=> MENU_LOCAL_TASK,
+		'weight'	=> 91,
+		'tab_parent'      => 'fratler/account',
+	);
+	// All accounts 
+	$items['fratler/account/all/overview'] = array(
+		'title'		=> 'All accounts',
+		'description'	=> 'Display all transactions',
+		'page callback'	=> 'fm_account_overview',
+		'page arguments' => array(2),
+		'access callback' => 'fratler_accounts_access',
+		'access arguments' => array('FAcPerm::DISPLAY_ACC'),
 		'type'		=> MENU_LOCAL_TASK,
 		'weight'	=> 90,
+		'tab_parent'      => 'fratler/account',
 	);
 	// Personal statement
-	$items['fratler/statement'] = array(
+	$items['fratler/account/statement'] = array(
 		'title'		=> 'Statement',
 		'description'	=> 'View your account statement',
 		'page callback' => 'fm_statement',
 		'page arguments' => array(),
-		'access callback' => 'fm_access',
-		'access arguments' => array('statement'),
+		'access callback' => 'fratler_accounts_access',
+		'access arguments' => array('FAcPerm::DISPLAY'),
 		'type'		=> MENU_LOCAL_TASK,
 		'weight'	=> 1,
-		'tab_root'	=> 'fratler/transaction',
-		'tab_parent'	=> 'fratler/transaction',
 		'menu_name'	=> 'user-menu',
+		'tab_parent'      => 'fratler/account',
+		'tab_root'      => 'fratler/account',
 	);
 	// Statement
-	$items['fratler/statement/%fratler_money_account'] = array(
+	$items['fratler/account/%fratler_money_account/statement'] = array(
 		'title'		=> 'Statement',
 		'description'	=> 'View your account statement',
 		'page callback' => 'fm_statement',
 		'page arguments' => array(2),
-		'access callback' => 'fm_access',
-		'access arguments' => array('statement', 2),
+		'access callback' => 'fratler_accounts_access',
+		'access arguments' => array('FAcPerm::DISPLAY', 2),
 		'type'		=> MENU_LOCAL_TASK,
 		'context'	=> MENU_CONTEXT_INLINE,
-		'tab_root'	=> 'fratler/transaction',
-		'tab_parent'	=> 'fratler/transaction',
+		'tab_parent'      => 'fratler/account',
 	);
-	// Personal statement
+ 	// Personal statement
 	$items['user/%fratler_money_account/fm_statement'] = array(
 		'title'	=> 'Account statement',
 		'description'	=> 'Account statement',
 		'page callback'	=> 'fm_statement',
 		'page arguments' => array(1),
-		'access callback' => 'fm_access',
-		'access arguments' => array('statement', 1),
+		'access callback' => 'fratler_accounts_access',
+		'access arguments' => array('FAcPerm::DISPLAY', 1),
 		'type'		=> MENU_LOCAL_TASK,
 	);
 
@@ -242,31 +419,84 @@ function fratler_money_menu() {
 }
 
 /**
+ * Rebuild the state (permissions) field in the FMAc table
+ *
+ * @param process
+ * 	If set, batch_process() will be fired with $process as parameter.
+ * 	NOTE: This also involves that "destination" must be set in the query.
+ */
+
+function fratler_accounts_rebuild_permissions($process = false) {
+	$ops = array(
+		'operations' 	=> array(array('_fac_build_perm_init', array())),
+		'title'		=> t('Rebuilding Fratler Accounts'),
+		'progress_message' => t('Processing account @current of @total.'),
+		'finished'	=> '_fac_build_perm_done',
+	);
+	$users = user_load_multiple(false);
+	unset($users[0]);
+	foreach ($users as $user) {
+		// Try to find the latest balance
+		$balance = db_query('SELECT c.balance, c.tstamp, c.tid FROM {fratler_money_currents} c WHERE rid = :uid ORDER BY c.tstamp DESC LIMIT 1', array(':uid' => $user->uid))->fetchObject();
+		$ops['operations'][] = array('_fac_build_perm_process', array($user, $balance));
+	}
+	batch_set($ops);
+
+	if ($process) {
+		$destination = drupal_get_destination();
+		$url = 'admin/config/fratler/accounts';
+
+		// If destination was set...
+		if ($destination['destination'] != current_path())
+			$url = $destination['destination'];
+
+		batch_process($url);
+	}
+}
+
+/**
  * Handle the results of the batch-call during fratler_money_install()
  *
  * @see fratler_money_enable()
  * @see batch_process()
  */
-function _fm_batch_done($success = false, $results = null, $operations = null) {
-	if ($success) 
-		drupal_set_message(format_plural(count($results), 'Created one Transaction Account.', 'Created @count Transaction Accounts.'));
-}
-/**
- * Runner-Task to create FMAcs for existing users.
- */
-function _fm_batch_process($aid, $active, $balance, &$context) {
-	if (!fratler_money_account_load($aid)) {
-		$account = entity_get_controller('fratler_money_account')->create($aid);
-		$account->active = $active;
-		if ($balance) {
-			$account->balance = $balance->balance;
-			$account->tstamp = $balance->tstamp;
-			$account->last_trans = $balance->tid;
-		}
-		fratler_money_account_save($account);
-		$context['message'] = t('Processing @account.', array('@account' => $account->name));
-		$context['results'][$aid] = true;
+function _fac_build_perm_done($success = false, $results = null, $operations = null) {
+	if ($success) {
+		if ($results['created'])	drupal_set_message(format_plural($results['created'], 'Created one Transaction Account.', 'Created @count Transaction Accounts.'));
+		if ($results['updated'])	drupal_set_message(format_plural($results['updated'], 'Updated one Transaction Account.', 'Updated @count Transaction Accounts.'));
 	}
+}
+
+/**
+ * Initializes the rebuild batch variables.
+ * @see fratler_accounts_rebuild_permissions()
+ */
+function _fac_build_perm_init(&$context) {
+	$context['results']['created'] = 0;
+	$context['results']['updated'] = 0;
+	$context['message'] = t('Initializing.');
+}
+
+/**
+ * Runner-Task to create FMAcs for existing users and update the permissions.
+ * @see fratler_accounts_rebuild_permissions()
+ */
+function _fac_build_perm_process($user, $balance, &$context) {
+	$account = fratler_money_account_load($user->uid);
+	if (!$account) 
+		$account = entity_get_controller('fratler_money_account')->create($user->uid);
+
+	$account->active = $user->status;
+	$account->state  = _fac_permission_calculate($user);
+
+	if ($balance) {
+		$account->balance = $balance->balance;
+		$account->tstamp = $balance->tstamp;
+		$account->last_trans = $balance->tid;
+	}
+	$state = fratler_money_account_save($account);
+	$context['message'] = t('Processing @account.', array('@account' => $account->name));
+	$context['results'][$state == MergeQuery::STATUS_INSERT ? 'created' : 'updated']++;
 }
 
 /**
@@ -294,48 +524,71 @@ function fratler_money_get_transactions($aid, $tstamp = null) {
 
 	return $query->execute()->fetchCol();
 }
+/**
+ * Callback function to render the title of the overview-page
+ *
+ * @param $object
+ * 	The fully-loaded FAc-object
+ */
+function fm_account_overview_title($object) {
+	global $user;
+	if ($object && $object == 'all')
+		return t('All accounts');
+	if (!$object)
+		$object = fratler_money_account_load($user->uid);
+	return $object->is_own ? t('My accounts') : t('Account overview: @name', array('@name' => $object->name));
+}
+
 
 /**
  * Display an overview of all accounts related to a given user.
  *
  * @param target
- * 	The loaded user-object
+ * 	The fully-loaded FAc-object
  */
 function fm_account_overview($target = null) {
 	global $user;
-	if (!$target)
-		$target = $user;
-	drupal_set_title('Account overview');
-	$rows = array();
-	$aids = array();
 
-	// Grab all the accounts the user can transfer from
+	if (!$target)
+		$target = fratler_money_account_load($user->uid);
+
+	drupal_set_title(fm_account_overview_title($target));
+	$rows = array();
+	$accounts = array();
+
+	// Grab all the accounts the user can see
 	foreach (module_implements('fm_transaction_sids') as $module) {
-		foreach (module_invoke($module, 'fm_transaction_sids', $target, null) as $aid => $name) 
-			$aids[$aid] = $name; 
+		foreach (module_invoke($module, 'fm_transaction_sids', $target, null) as $account) {
+			// Index the array by name, prefix own account with !! and Master Accounts with ZZ to weigh them up/down.
+			if ($account->aid == $user->uid)
+				$accounts[strtolower('!! ' . $account->name)] = $account;
+			else if ($account->aid < 0)
+				$accounts[strtolower('zz' . $account->name)] = $account;
+			else
+				$accounts[strtolower($account->name)] = $account; 
+		}
 	}
-	natcasesort($aids);
+	ksort($accounts);
 
 	// If we have account-IDs, process them
-	if (!empty($aids)) {
-		$balances = fratler_money_account_load_multiple(array_keys($aids));
+	if ($accounts) {
 		// Verify and render the data
-		foreach (array_keys($aids) as $aid) {
-			$balance = $balances[$aid];
+		foreach ($accounts as $account) {
 			$rows[] = array(
-				// @todo this needs some fine tuning RE what actually gets rendered as a link and what not
-				l(fratler_money_format_account($balance->aid), 'fratler/statement/' . $balance->aid),
-				_fm_monetize($balance->balance),
-				$balance->tstamp ? l(format_date($balance->tstamp, 'short'), 'fratler/transaction/view/' . $balance->last_trans) : t('-----'),
-				array('data' => hash('crc32b', $balance->signature), 'class' => array('fm_fingerprint', !$balance->signature_ok ? 'fm_check_fail' : '')),
-				array('data' => $balance->signature_ok ? '&#x2714' : '&#x2718', 'class' => array($balance->signature_ok ? 'fm_check_ok' : 'fm_check_fail')),
+				fratler_accounts_access(FAcPerm::DISPLAY, $account) ? l($account->name, 'fratler/account/' . $account->aid . '/statement') : $account->name,
+				_fm_monetize($account->balance),
+				$account->tstamp ? (fratler_accounts_access(FAcPerm::DISPLAY, $account) ? l(format_date($account->tstamp, 'short'), 'fratler/transaction/' . $account->last_trans) : format_date($account->tstamp, 'short')) : t('-----'),
+				$account->active ? '&#x2714' : '&#x2718',
+				$account->blocked ? '&#x2714' : '&#x2718',
+				array('data' => hash('crc32b', $account->signature), 'class' => array('fm_fingerprint', !$account->signature_ok ? 'fm_check_fail' : '')),
+				array('data' => $account->signature_ok ? '&#x2714' : '&#x2718', 'class' => array($account->signature_ok ? 'fm_check_ok' : 'fm_check_fail')),
 			);
 		}
 	}
 
 	$build = array(
 		'#theme'	=> 'table',
-		'#header'	=> array(t('Account'), t('Balance'), t('Last transaction'), array('data' => t('Fingerprint'), 'colspan' => 2)),
+		'#header'	=> array(t('Account'), t('Balance'), t('Last transaction'), t('Active'), t('Blocked'), array('data' => t('Fingerprint'), 'colspan' => 2)),
 		'#rows'		=> $rows,
 		'#sticky'	=> true,
 		'#empty'	=> t('No accounts available.'),
@@ -369,17 +622,17 @@ function fm_statement($target = null) {
 
 	$header = fratler_money_format_header($style);
 
-	$query = db_select('fratler_money_currents', 't');
+	$query = db_select('fratler_money_currents', 't')->orderBy('t.tstamp', 'DESC');
 
 	if ($target == 'all')
-		$query->where('(t.sid = 0) OR (t.sid != 0 AND t.amount > 0)')->orderBy('t.tstamp', 'DESC');
+		$query->where('(t.sid = 0) OR (t.sid != 0 AND t.amount > 0)');
 	else
 		$query->condition('rid', $target->aid);
 
 	$count_query = clone $query;
 	$count_query->addExpression('COUNT(t.tid)');
 
-	$query = $query->extend('PagerDefault')->extend('TableSort');
+	$query = $query->extend('PagerDefault');
 	$query->setCountQuery($count_query);
 	// Because of the way transactions are handled, we need to swap rid/sid if required; this is also the reason why we can't use bloody EFQs...
 	$query->addExpression('IF (t.amount < 0 AND t.sid != 0, t.sid, t.rid)', 'rid');
@@ -389,7 +642,7 @@ function fm_statement($target = null) {
 	$query->addField('t', 'tid');
 	$query->addField('look_sid', 'name', 'sid_name');
 	$query->addField('look_rid', 'name', 'rid_name');
-	$query->limit(variable_get('fm_pager'))->orderByHeader($header);
+	$query->limit(variable_get('fm_pager'));
 
 	// We're only interested in aids
 	$result = $query->execute()->fetchCol();
@@ -432,19 +685,19 @@ function fm_statement_filter($form, &$form_state) {
 
 	// Grab all the accounts the user can access
 	foreach (module_implements('fm_transaction_sids') as $module)
-		foreach (module_invoke($module, 'fm_transaction_sids') as $aid => $name)
-			$aids[$aid] = $name;
+		foreach (module_invoke($module, 'fm_transaction_sids') as $aid => $account)
+			$aids[$aid] = $account->name;
  	
 	natcasesort($aids);
 	// If there's just 1 account the user can display: abort.
-	if (count($aids) <= 1 && !user_access('display other transactions'))
+	if (count($aids) <= 1 && !fratler_accounts_access(FAcPerm::DISPLAY_ALL))
 		return array();
 
 	$items['cont'] = array(
 		'#type'	=> 'container',
 		'#attributes' => array('class' => array('container-inline', 'fm_search_field')), 
 	);
-	if (user_access('display other transactions')) {
+	if (fratler_accounts_access(FAcPerm::DISPLAY_ALL)) {
 		$items['cont']['aname'] = array(
 			'#type'		=> 'textfield',
 			'#title'	=> t('Switch to:'),
@@ -491,7 +744,7 @@ function fm_statement_filter_validate($form, &$form_state) {
  * Redirects the user to the new account statement
  */
 function fm_statement_filter_submit($form, &$form_state) {
-	$form_state['redirect'] = array('fratler/statement/' . $form_state['values']['aid']);
+	$form_state['redirect'] = array('fratler/account/' . $form_state['values']['aid'] . '/statement');
 }
 
 
@@ -629,22 +882,23 @@ function fm_display_transaction($entity = false, $style = FMTransactionStyle::FM
 
 	drupal_set_title(t('Transaction #@tid', array('@tid' => $entity->tid)));
 
-	if ($entity->rid != $user->uid && !isset($entity->counter) && $entity->sid != 0) 
-		$style = $style | FMTransactionStyle::FM_SID;
-
-	// If we're adjusting, swap FM_BAL_RID with FM_BAL_SID
-	if ($entity->sid == 0)
-		$style = $style ^ FMTransactionStyle::FM_BAL_SID | FMTransactionStyle::FM_BAL_RID;
+	// If we're adjusting, replace FM_BAL_RID with FM_BAL_SID
+	if ($entity->sid == 0) { 
+		if ($style & FMTransactionStyle::FM_BAL_SID) $style ^= FMTransactionStyle::FM_BAL_SID;
+		$style |= FMTransactionStyle::FM_BAL_RID;
+	}
 	
 	// If the user is allowed to transfer others' amounts but not to display, cut out the balances. It's the polite thing to do.
-	if ($entity->rid != $user->uid && !user_access('display other transactions') && !user_access('display all transactions')) 
-		$style = $style ^ FMTransactionStyle::FM_BAL_SID;
+	if (!fratler_accounts_access(FAcPerm::DISPLAY_ALL | FAcPerm::DISPLAY_ACC)) { 
+		if ($style & FMTransactionStyle::FM_BAL_SID && $entity->sid != $user->uid) $style ^= FMTransactionStyle::FM_BAL_SID;
+		if ($style & FMTransactionStyle::FM_BAL_RID && $entity->rid != $user->uid) $style ^= FMTransactionStyle::FM_BAL_RID;
+	}
 
 	// Make things pretty
 	drupal_add_css(drupal_get_path('module', 'fratler_money') . '/styles/fratler_money_main.css');
 
 	return theme('table', array(
-		'header'	=> fratler_money_format_header($style, false),
+		'header'	=> fratler_money_format_header($style),
 		'empty'		=> t('No transactions available.'),
 		'rows'          => array(fratler_money_format_row($entity, $style)),
 		'sticky'        => true,
@@ -669,7 +923,7 @@ function fratler_money_format_row($entity, $format = FMTransactionStyle::FM_DEFA
 	
 	if ($format & FMTransactionStyle::FM_TID)
 		$row['tid'] = array(
-			'data'	=> l($entity->tid, 'fratler/transaction/view/' . $entity->tid),
+			'data'	=> l($entity->tid, 'fratler/transaction/' . $entity->tid),
 		);
 
 	if ($format & FMTransactionStyle::FM_TSTAMP)
@@ -746,7 +1000,7 @@ function fratler_money_format_row($entity, $format = FMTransactionStyle::FM_DEFA
  * @return
  * 	An associative array with the properly formatted values.
  */
-function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $table_prefix = null) {
+function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT) {
 	// Make things a bit easier
 	$header 	= array();
 
@@ -760,10 +1014,9 @@ function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $
 
 	// FIXME the key might need changing
 	if ($format & FMTransactionStyle::FM_TSTAMP)
-		$header['t.tstamp'] = array(
+		$header['tstamp'] = array(
 			'data'		=> t('Timestamp'),
 			'type'		=> 'property',
-			'specifier'	=> 'tstamp',
 			'sort'		=> 'desc',
 		);
 
@@ -771,14 +1024,12 @@ function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $
 		$header['sid'] = array(
 			'data'		=> t('Sender'),
 			'type'		=> 'property',
-			'specifier'	=> 'sid_name',
 		);
 
 	if ($format & FMTransactionStyle::FM_RID)
 		$header['rid'] = array(
 			'data'		=> t('Account'),
 			'type'		=> 'property',
-			'specifier'	=> 'rid_name',	
 		);
 
 	if ($format & FMTransactionStyle::FM_TTYPE)
@@ -792,7 +1043,6 @@ function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $
 			'data'		=> t('Transaction-Memo'),
 			'class'		=> array('fm_message'),
 			'type'		=> 'property',
-			'specifier'	=> 'txt',
 		);
 
 	if ($format & FMTransactionStyle::FM_AMOUNT)
@@ -824,15 +1074,6 @@ function fratler_money_format_header($format = FMTransactionStyle::FM_DEFAULT, $
 			'colspan' => 2,
 		);
 
-	// Add fields and prefixes if required
-	if ($table_prefix !== false) {
-		foreach ($header as $key => $child) 
-			// Skip rid, sid, ttype and the fingerprint
-			if ($key != 'ttype' && $key != 'fingerprint') {
-				$header[$key]['field'] = ($table_prefix ? $table_prefix. '.' : '') . ($key == 'balance_rid' || $key == 'balance_sid') ? 'balance' : $key;
-			}
-	}
-
 	return $header;
 }
 
@@ -863,75 +1104,45 @@ interface FMTransactionStyle {
 }
 
 /**
- * Wrapper for user_access: checks user-permissions against a context.
+ * Load a Transaction-object.
  *
- * @param context
- * 	The context the permission needs to be checked, e.g. 'view', 'transfer', etc.
+ * @param tid
+ * 	The Transaction-ID.
  *
- * @param entity
- * 	The loaded entity (or null if not applicable).
+ * @param reset
+ * 	Whether to reset the entity-cache.
  *
  * @return
- * 	TRUE if the user has sufficient permissions, otherwise FALSE.
+ * 	A fully-loaded Fratler Transaction object.
  */
-function fm_access($context, $entity = null) {
-	global $user;
-
-	// Display single transactions
-	if ($context == 'view') {
-		/**
-		 * It's debateable whether it makes sense not permitting a user who has the permission to transfer others' funds requiring
-		 * permission to view the own funds... but I'm kind of a dick - deal with it.
-		 */
-		if  ($entity->rid == $user->uid) 	// The user is involved in the transfer
-			return user_access('display own transactions') || user_access('display all transactions') || user_access('transfer own funds') || user_access('adjust own account');
-		else if ($entity->iid == $user->uid)	// The user initiated the transaction
-			return user_access('display other transactions') || user_access('transfer other funds') || user_access('adjust other accounts');
-		else
-			return user_access('display other transactions') || user_access('display all transactions');
-	}
-	// Display statements
-	else if ($context == 'statement') {
-		if (!$entity || $entity->aid == $user->uid)
-			return user_access('display own transactions') || user_access('display all transactions') || user_access('display other transactions');
-		else
-			return user_access('display other transactions');
-	}
-	else if ($context == 'transfer')
-	       return user_access('transfer own funds') || user_access('transfer other funds');
-	else if ($context == 'adjustment')
-		return user_access('adjust own account') || user_access('adjust other accounts');
-	else if ($context == 'menu')
-		return user_access('adjust own account') || user_access('adjust other accounts') || user_access('transfer own funds') || user_access('transfer other funds') || user_access('display own transactions') || user_access('display other transactions');
-	else if ($context == 'participate') 
-		return user_access('recieve transfers', $entity) || user_access('transfer own funds', $entity);
-
-	return false;
-}
-
-/**
- * Since drupal is kinda bitchy about dynamic menu-allocations, we use this as shim 
- * to divert the user to the first transaction-form he's permitted for.
- */
-function fm_transaction_switch() {
-	if (fm_access('transfer'))
-		drupal_goto('fratler/transaction/new/transfer');
-	else if (fm_access('adjustment'))
-		drupal_goto('fratler/transaction/new/adjustment');
-
-	return drupal_access_denied();
-}
-
 function fratler_money_transaction_load($tid = NULL, $reset = FALSE) {
 	$tids = (isset($tid) ? array($tid) : array());
 	$transaction = fratler_money_transaction_load_multiple($tids, array(), $reset);
 	return $transaction ? reset($transaction) : FALSE;
 }
 
+/**
+ * Load multiple Transaction-objects.
+ *
+ * @param tids
+ * 	An array holding the Transaction-IDs.
+ *
+ * @param reset
+ * 	Whether to reset the entity-cache.
+ *
+ * @return
+ * 	A fully-loaded Fratler Transaction object.
+ */
 function fratler_money_transaction_load_multiple($tids = FALSE, $conditions = array(), $reset = FALSE) {
 	return entity_load('fratler_money_transaction', $tids, $conditions, $reset);
 }
 
+/**
+ * Wrapper to save a Transaction Entity.
+ *
+ * @param $entity
+ * 	The fully-populated Fratler Transaction Entity.
+ */
 function fratler_money_transaction_save(&$entity) {
 	return entity_get_controller('fratler_money_transaction')->save($entity);
 }
@@ -980,21 +1191,22 @@ function fratler_money_hash_verify($entity) {
 			watchdog('fratler_money', 'Signature-Mismatch for :user\'s account detected. Account has been locked. Your database might have been compromised!',
 				array(':user' => check_plain($entity->name)),
 				WATCHDOG_EMERGENCY,     // Yep. It's bad.
-				l(t('Inspect account'), 'fratler/statement/' . check_plain($entity->aid)));
-			drupal_set_message(t('An error occured while verifying the signature for !name\'s account; ' . 
+				l(t('Inspect account'), 'fratler/account/' . check_plain($entity->aid) . '/statement'));
+			drupal_set_message(t('An error occured while verifying the signature of the account !name; ' . 
 				'please contact an admin immediately.', 
-				array('!name' => l(check_plain($entity->name), 'fratler/statement/'.check_plain($entity->aid)))), 'error', false);
+				array('!name' => l(check_plain($entity->name), 'fratler/account/'.check_plain($entity->aid) . '/statement'))), 'error', false);
 		}
 		else {
 			watchdog('fratler_money', 'Signature-Mismatch for transaction #:tid detected. Your database might have been compromised!',
 				array(':tid' => check_plain($entity->tid)),
 				WATCHDOG_EMERGENCY,
-				l(t('Inspect transaction'), 'fratler/transaction/view/' . check_plain($entity->tid)));
+				l(t('Inspect transaction'), 'fratler/transaction/' . check_plain($entity->tid)));
 			drupal_set_message(t('An error occured while verifying the signature for transaction #!tid. ' . 
 				'Involved accounts were locked to avoid further corruption. ' .
-				'please contact an admin immediately.', 
-				array('!tid' => l(check_plain($entity->tid), 'fratler/transaction/view/'.check_plain($entity->tid)))), 'error', false);
+				'Please contact an admin immediately.', 
+				array('!tid' => l(check_plain($entity->tid), 'fratler/transaction/'.check_plain($entity->tid)))), 'error', false);
 
+			debug("moo!!!");
 			// Reset the FMAc signatures for the involved parties to prevent them from making a mess
 			db_query('UPDATE {fratler_money_balances} SET blocked = 1, signature = NULL WHERE aid IN (:aids)', array(':aids' => array(check_plain($entity->rid), check_plain($entity->sid))));
 			// Fire a hook, it might be a good idea to let the affected users know in some way...
@@ -1039,7 +1251,7 @@ function _fm_generate_hash($entity, $setting) {
 	$count = 1 << $count_log2;
 
 	// Kill the stuff that can't be used for hashing
-	unset($entity->signature, $entity->signature_ok, $entity->counter, $entity->balance_sid, $entity->balance_rid, $entity->sid_name, $entity->rid_name, $entity->ttype_name);
+	unset($entity->signature, $entity->is_own, $entity->signature_ok, $entity->counter, $entity->balance_sid, $entity->balance_rid, $entity->sid_name, $entity->rid_name, $entity->ttype_name);
 
 
 	// Do the hashy
@@ -1051,6 +1263,7 @@ function _fm_generate_hash($entity, $setting) {
 	if (isset($data['iid']))	$data['iid']		= (int) $data['iid'];
 	if (isset($data['aid']))	$data['aid']		= (int) $data['aid'];
 	if (isset($data['active']))	$data['active']		= (int) $data['active'];
+	if (isset($data['state']))	$data['state']		= (int) $data['state'];
 	if (isset($data['blocked']))	$data['blocked']	= (int) $data['blocked'];
 	if (isset($data['amount'])) 	$data['amount'] 	= number_format($data['amount'], 2, '.', '');
 	if (isset($data['balance'])) 	$data['balance'] 	= number_format($data['balance'], 2, '.', '');
@@ -1061,7 +1274,7 @@ function _fm_generate_hash($entity, $setting) {
 	$hash = hash('sha512', $salt . json_encode($data), true);
 
 	do {
-		$hash = hash('sha512', $hash, true);
+		$hash = hash('sha256', $hash, true);
 	} while (--$count);
 
 	// In case $setting is an entire hash, just extract the first 12 bytes as setting-string
@@ -1072,7 +1285,7 @@ function _fm_generate_hash($entity, $setting) {
 
 function _fm_generate_salt($count_log2) {
 	$output = '$D$';		// We're modifying the hash-key; 'D' for Fratler - obvious, isn't it?
-	$count_log2 = 10+$count_log2;	// This function expects the last byte of the timestamp, so a number between 0 and 9
+	$count_log2 = 5+$count_log2;	// This function expects the last byte of the timestamp, so a number between 0 and 9
 
 	static $itoa64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 	$output .= $itoa64[$count_log2];	// Add the iteration-counter
@@ -1096,7 +1309,7 @@ function _fm_generate_salt($count_log2) {
  */
 function fratler_money_transaction_uri($tid) {
 	return array(
-		'path' => 'fratler/transaction/view/' . $tid,
+		'path' => 'fratler/transaction/' . $tid,
 	);
 }
 
@@ -1189,7 +1402,7 @@ class FratlerMoneyTransactionController
 				$c_entity->signature = 0;
 
 				// And finally: shove it down this function again :)
-				$this->save($c_entity);
+				return $this->save($c_entity);
 			}
 
 			return $entity;
@@ -1221,7 +1434,6 @@ class FratlerMoneyTransactionController
 
 		/**
 		 * Loads the entity and does some cosmetics
-		 * TODO do we really need $message?!
 		 */
 		public function load($ids = array(), $conditions = array(), $message = true) {
 			$entities = parent::load($ids, array());
@@ -1283,16 +1495,19 @@ class FratlerMoneyAccountController
 		 * Create and return a skeleton account
 		 */
 		public function create($aid = 0) {
+			global $user;
 			$account = new stdClass();
 			$account->aid = $aid;	// The designated account-ID (userID or FMA-ID)
 			$account->balance = 0.00;
 			$account->active = 1;	// By default, all accounts are active. They only become inactive once the corresponding user/FMA has been deleted.
+			$account->state = 0;	// Permissions-Bitfield.
 			$account->blocked = 0;	// By default, all accounts are unblocked. They only become blocked if a signature-mismatch occurs.
 			$account->name = $aid ? $this->formatFMAcName($aid) : null;
 			$account->tstamp = 0;
 			$account->last_trans = 0;	// tid of the last transaction
 			$account->signature = fratler_money_hash($account);
 			$account->signature_ok = true;
+			$account->is_own = $account->aid == $user->uid;
 
 			return $account;
 		}
@@ -1305,15 +1520,18 @@ class FratlerMoneyAccountController
 			// Resign the account if the previous signature was OK. If not, issue a warning and save with invalid signature to avoid masking manipulations.
 			if ($account->signature_ok)
 				$account->signature = fratler_money_hash($account);
-			else 
-				drupal_set_message(t('Account !account\'s signature was corrupted. Changes were saved, but the signature was NOT updated.', 
-							array('!account' => l(check_plain($account->name), 'fratler/statement/' . $account->aid))), 'warning');
-			db_merge('fratler_money_balances')
+			else {
+				$account->blocked = 1;
+				drupal_set_message(t('Signature of account !account\'s was corrupted. Changes were saved, but the signature was NOT updated. The account has been blocked to prevent further corruption.', 
+							array('!account' => l(check_plain($account->name), 'fratler/account/' . $account->aid . '/statement'))), 'warning');
+			}
+			$state = db_merge('fratler_money_balances')
 				->key(array('aid' => $account->aid))
 				->fields(array(
 					'balance'	=> $account->balance,
 					'name'		=> check_plain($account->name),
 					'active'	=> (int)$account->active,
+					'state'		=> (int)$account->state,
 					'blocked'	=> (int)$account->blocked,
 					'tstamp'	=> $account->tstamp,
 					'signature'	=> $account->signature,
@@ -1322,7 +1540,7 @@ class FratlerMoneyAccountController
 
 			module_invoke_all(empty($primary_keys)? 'entity_insert' : 'entity_update', $account, 'fratler_money_account');
 
-			return $account;
+			return $state;
 		}
 
 		/**
@@ -1335,11 +1553,13 @@ class FratlerMoneyAccountController
 		 * 	Legacy; not used.
 		 */
 		public function load($aids = array(), $conditions = array()) {
+			global $user;
 			$accounts = parent::load($aids, $conditions);
 
 			foreach ($accounts as $account) {
 				$account->name 		= check_plain($account->name);
 				$account->signature_ok	= fratler_money_hash_verify($account);
+				$account->is_own	= $account->aid == $user->uid;
 			}
 
 			return $accounts;
@@ -1399,6 +1619,7 @@ class FratlerMoneyAccountController
  */
 function fratler_money_user_insert(&$edit, $user, $category) {
 	$account = entity_get_controller('fratler_money_account')->create($user->uid);
+	$account->state = _fac_permission_calculate($user);
 	fratler_money_account_save($account);
 }
 /**
@@ -1409,6 +1630,7 @@ function fratler_money_user_update(&$edit, $user, $category) {
 	$account = fratler_money_account_load($user->uid);
 	if ($account) {
 		$account->name = check_plain(format_username($user));
+		$account->state = _fac_permission_calculate($user);
 		$account->active = $user->status;
 		fratler_money_account_save($account);
 	}
@@ -1564,15 +1786,15 @@ function fratler_money_fm_transaction_update($entity) {
 }
 
 /**
- * Implements hook_fm_transaction_sids(). Find every account-id that's assigned to a user.
- * For the regular fratler_money, this is just the current user-account; this only becomes
- * interesting, once Master Accounts come into play.
+ * Implements hook_fm_transaction_sids(). Find every account-id that the user can get an overview / access.
  *
  * @param target
  * 	The user to be checked (ID or object); if none given the current user is checked.
+ * 	If target 'all' is passed, this function will return all user-accounts (aid > 0).
  *
  * @param type
  * 	The transaction type; not used in this context.
+ * 	TODO This might be a good idea to change it to a permission against which to check the individual accounts
  *
  * @return
  * 	If the target is allowed to participate, an array with userID=>fratler_money_format_account().
@@ -1581,18 +1803,34 @@ function fratler_money_fm_transaction_update($entity) {
 function fratler_money_fm_transaction_sids($target = false, $type = false) {
 	global $user;
 
-	// If the target is false, check the current user
-	if (!$target)
-		$target = $user;
+	$matches = array();
+	$output = array();
+
+	if ($target == 'all') {
+		$query = new EntityFieldQuery(); 
+		$query->entityCondition('entity_type', 'fratler_money_account')
+			->propertyCondition('aid', 0, '>');
+		$query = $query->execute();
+		if (isset($query['fratler_money_account']))
+			$matches = fratler_money_account_load_multiple(array_keys($query['fratler_money_account']));
+	}
+
+	// If the target is empty or a user-object, load the corresponding account
+	else if (!$target || isset($target->uid))
+		$matches[] = fratler_money_account_load($user->uid);
 	else if (!is_object($target))
-		$target = user_load($target);	
+		$matches[] = fratler_money_account_load($target);
+	else if ($target && isset($target->aid))
+		$matches[] = $target;
 
 	// Only if the user is allowed to receive / transfer funds, this makes sense; 
 	// For groups that were taken out of the rotation at some point, a case can be made to add 'display own transactions' to the list
-	if (fm_access('participate', $target) && fratler_money_account_load($target->uid))
-		return array($target->uid => fratler_money_format_account($target->uid));
-	else
-		return array();
+	foreach ($matches as $match) {
+		if ($match && fratler_accounts_access(FAcPerm::PARTICIPATE, $match))
+			$output[$match->aid] = $match;
+	}
+
+	return $output;
 }
 
 /**
@@ -1709,8 +1947,6 @@ function _fm_cs_psfix($psfix, &$fmt = NULL) {
 /**
  * Menu callback, User-Autocomplete function tailored to fratler_money's needs.
  *
- * TODO Now that we have a proper FMAc-table, rewrite this so we don't need to load user objects
- *
  * @param string
  * 	A string to match against existing users
  *
@@ -1726,32 +1962,30 @@ function _fm_autocomplete($string = '', $direction = 'rid', $type) {
 		// Ask the other modules what they think of it
 		$matches += module_invoke_all('fm_autocomplete', $string, $direction, $type);
 
+		$query = new EntityFieldQuery();
+		$query->entityCondition('entity_type', 'fratler_money_account')
+			->propertyCondition('name', '%' . $string . '%', 'LIKE')
+			->propertyCondition('blocked', 0)	// No matter what permissions, blocked means blocked.
+			->range(0, 10);
+		if (!fratler_accounts_access(FAcPerm::IGNORE_BAR)) {
+			$query->propertyCondition('active', 1);
+			if ($direction == 'rid')
+				$query->propertyCondition('state', FAcPerm::RECEIVE, '&');
+		}
+		$results = $query->execute();
 
-		// If the user doesn't have permission to transfer to every registered user, fetch the user-roles that may participate in transactions
-		if (!user_access('ignore barred recipient'))
-			// Grab the roles that are allowed to participate
-			$roles = db_query('SELECT rid FROM {role_permission} WHERE permission = :receive_transfers', array(':receive_transfers' => 'receive transfers'))->fetchCol();
+		$candidates = fratler_money_account_load_multiple(array_keys($results['fratler_money_account']));
 
+		foreach ($candidates as $candidate) {
+			$matches[$candidate->name] = $candidate->name;
 
-		$uids = db_select('users', 'u')->fields('u', array('uid'));
-
-		// If every authenticated user can join the party, don't bother sorting by role
-		if (!in_array(DRUPAL_AUTHENTICATED_RID, $roles) && !empty($roles)) {
-			// Casually drop in the admin, in case he can participate
-			if (variable_get('fm_trans_admin', 0))
-				$uids->join('users_roles', 'r', 'u.uid = r.uid OR u.uid = 1');
-			else
-				$uids->join('users_roles', 'r', 'u.uid = r.uid');
-			$uids->condition('r.rid', $roles, 'IN');
+			// Attach a couple warning-messages to the display in case the accounts are blocked / inactive
+			if (!$candidate->active)
+				$matches[$candidate->name] .= ' ' . t('(inactive)');
 		}
 
-		$uids->condition('u.name', '%' . db_like($string) . '%', 'LIKE')->range(0, 10);
-		$uids = $uids->execute()->fetchCol();
-
-		foreach (user_load_multiple($uids) as $match) 
-			$matches[$match->name] = format_username($match);
+		drupal_json_output($matches);
 	}
-	drupal_json_output($matches);
 }
 
 /**
@@ -1810,27 +2044,27 @@ function fratler_money_fm_transaction_dry_run($entity) {
 	// TODO still need a cron-job to keep an eye on the signatures in both databases!
 
 	// Step 1: grab the involved accounts
-	$accounts = fratler_money_account_load_multiple(array($entity->sid, $entity->rid));
+	$rid = fratler_money_account_load($entity->rid);
+	$sid = fratler_money_account_load($entity->sid);
 
 	// Step 2: check the signatures of the involved accounts
-	foreach ($accounts as $account) 
-		// If the signatures don't match, shit has officially hit the fan.
-		if (!$account->signature_ok) 
-			return array(FMErrors::SIGNATURE_MISMATCH => $entity->rid == $account->aid ? 'rid' : 'sid');
+	// If the signatures don't match, shit has officially hit the fan.
+	if (!$rid->signature_ok)  {
+		return array(FMErrors::SIGNATURE_MISMATCH => 'rid');
+	}
+
+	if ($sid && !$sid->signature_ok) 
+		return array(FMErrors::SIGNATURE_MISMATCH => 'sid');
 
 
 	// prepare the error-container
 	$errors = array();
 
-	// Check if the admin is part of the transaction and allowed to participate
-	if (($entity->rid == 1 || $entity->sid == 1) && !variable_get('fm_trans_admin')) 
-		$errors[FMErrors::PERM_PART_ADM] = $entity->rid == 1 ? 'rid' : 'sid';
-
 	// Check permissions for adjustments
 	if (!$entity->counter) {
-		if ($entity->rid == $user->uid && !user_access('adjust own account'))
+		if ($entity->rid == $user->uid && !fratler_accounts_access(FAcPerm::ADJUST_OWN))
 			$errors[FMErrors::PERM_ADJ_OWN] = 'rid';
-		else if ($entity->rid != $user->uid && !user_access('adjust other accounts'))
+		else if ($entity->rid != $user->uid && !fratler_accounts_access(FAcPerm::ADJUST_OTHER))
 			$errors[FMErrors::PERM_ADJ_OTH] = 'rid';
 	}
 
@@ -1839,22 +2073,22 @@ function fratler_money_fm_transaction_dry_run($entity) {
 		$errors[FMErrors::RIDSID_IDENTICAL] = 'rid';
 
 	// Check if the user is allowed to transfer own/other funds.
-	// This is only relevant for transfers; adjustments will be handled separately.
+	// This is only relevant for transfers 
 	// TODO implement the same for master-accounts, as this one only checks uids
 	if ($entity->counter && $entity->sid > 0) {
-		if ($entity->sid == $user->uid && !user_access('transfer own funds'))
+		if ($entity->sid == $user->uid && !fratler_accounts_access(FAcPerm::TRANSFER_OWN))
 			$errors[FMErrors::PERM_TRANS_OWN] = 'sid';
-		else if ($entity->sid != $user->uid && !user_access('transfer other funds'))
+		else if ($entity->sid != $user->uid && !fratler_accounts_access(FAcPerm::TRANSFER_OTHER))
 			$errors[FMErrors::PERM_TRANS_OTH] = 'sid';
 	}
 
-	// Check, if the recipient is allowed to participate in the transaction system.
-	// TODO implement the same for master-accounts, as this one only checks uids
-	if ($entity->rid > 0) {
-	       if ($entity->rid == $user->uid && !user_access('receive transfers') && !user_access('ignore barred recipients'))
-		       $errors[FMErrors::PERM_PART_OWN] = 'rid';
-	       else if ($entity->rid != $user->uid && !user_access('receive transfers', user_load($entity->rid)) && !user_access('ignore barred recipients'))
-		       $errors[FMErrors::PERM_PART_OTH] = 'rid';
+	// Check, if the recipient is allowed to receive transactions 
+	// This only applies only for initial transfers, not the counter-transactions
+	// TODO Make sure the implementation of FAcPerm in FMA ties in properly
+	if ($entity->counter) {
+		if (!fratler_accounts_access(FAcPerm::RECEIVE, $rid) && !fratler_accounts_access(FAcPerm::IGNORE_BAR)) {
+			$errors[$rid->aid == $user->uid ? FMErrors::PERM_PART_OWN : FMErrors::PERM_PART_OTH] = 'rid';
+		}
 	}
 
 	// If the amount is invalid or <= 0 and we're not adjusting
@@ -1862,7 +2096,9 @@ function fratler_money_fm_transaction_dry_run($entity) {
 		$errors[FMErrors::AMOUNT_INVALID] = 'amount';
 
 	// Check, if the amount exceeds the transaction-value and if the user's allowed to exceed it
-	else if (abs($entity->amount) > variable_get('fm_trans_max', 0) && variable_get('fm_trans_max', 0) != 0 && !user_access('exceed transaction limit'))
+	// fm_trans_max = 0 -> unlimited
+	else if (abs($entity->amount) > variable_get('fm_trans_max') && variable_get('fm_trans_max') != 0 && 
+			!fratler_accounts_access(FAcPerm::EXCEED_TRANS))
 		$errors[FMErrors::AMOUNT_OVER_MAX] = 'amount';
 
 	// Check the transaction-type for a pulse
@@ -1873,37 +2109,29 @@ function fratler_money_fm_transaction_dry_run($entity) {
 	// If we're in a transfer and the sender overdraws (either < 0 or below the set overdraw-limit)
 	// TODO: Implement the same for master-accounts as we're just doing the users here
 	if ($entity->counter && $entity->sid > 0) {
-		// Check if the user is allowed to overdraw in general, if the new balance is 0 > balance > limit
-		if (fm_get_balance($entity->sid)-$entity->amount < 0 && fm_get_balance($entity->sid)-$entity->amount > variable_get('fm_overdraw_limit')) {
-			if ($entity->sid == $user->uid && !user_access('overdraw own account'))
-				$errors[FMErrors::OWN_OVERDRAW] = 'amount';
-			else if ($entity->sid != $user->uid && !user_access('overdraw other accounts'))
-				$errors[FMErrors::SID_OVERDRAW] = 'amount';
+		// Check if the sender is allowed to overdraw in general, in case the new balance is 0 > balance > limit
+		if ($sid->balance-$entity->amount < 0 && $sid->balance-$entity->amount > variable_get('fm_overdraw_limit')) {
+			if (!fratler_accounts_access(FAcPerm::OVERDRAW, $sid))
+				$errors[$sid->aid == $user->uid ? FMErrors::OWN_OVERDRAW : FMErrors::SID_OVERDRAW] = 'amount';
 		}
 		// This is universal: check if the user has the permission to exceed the overdraw-limit
-		if (fm_get_balance($entity->sid)-$entity->amount < variable_get('fm_overdraw_limit')) {
-			if ($entity->sid == $user->uid && !user_access('exceed own overdraw'))
-				$errors[FMErrors::OWN_OVERDRAW_EX] = 'amount';
-			else if ($entity->sid != $user->uid && !user_access('exceed other overdraws'))
-				$errors[FMErrors::SID_OVERDRAW_EX] = 'amount';
+		if ($sid->balance-$entity->amount < variable_get('fm_overdraw_limit')) {
+			if (!fratler_accounts_access(FAcPerm::EXCEED_OVERDRAW, $sid))
+				$errors[$sid->aid == $user->uid ? FMErrors::OWN_OVERDRAW_EX : FMErrors::SID_OVERDRAW_EX] = 'amount';
 		}
 
 	// If we're adjusting and the recipient exceeds his overdraw
 	// We're deducting -- this is to prevent deposits with the final balance still < overdraw_limit
 	} else if (!$entity->counter && $entity->rid > 0 && $entity->amount < 0) {  								
 		// Check if the user is allowed to overdraw in general, if the new balance is 0 > balance > limit
-		if (fm_get_balance($entity->rid)+$entity->amount < 0 && fm_get_balance($entity->rid)+$entity->amount > variable_get('fm_overdraw_limit')) {
-			if ($entity->rid == $user->uid && !user_access('overdraw own account'))
+		if ($rid->balance+$entity->amount < 0 && $rid->balance+$entity->amount > variable_get('fm_overdraw_limit')) {
+			if (!fratler_accounts_access(FAcPerm::OVERDRAW))
 				$errors[FMErrors::OWN_OVERDRAW] = 'amount';
-			else if ($entity->rid != $user->uid && !user_access('overdraw other accounts'))
-				$errors[FMErrors::SID_OVERDRAW] = 'amount';
 		}
 		// This is universal: check if the user has permission to exceed the overdraw limit
-		if (fm_get_balance($entity->rid)+$entity->amount < variable_get('fm_overdraw_limit')) {
-			if ($entity->rid == $user->uid && !user_access('exceed own overdraw'))
+		if ($rid->balance+$entity->amount < variable_get('fm_overdraw_limit')) {
+			if (!fratler_accounts_access(FAcPerm::OVERDRAW))
 				$errors[FMErrors::OWN_OVERDRAW_EX] = 'amount';
-			else if ($entity->rid != $user->uid && !user_access('exceed other overdraws'))
-				$errors[FMErrors::RID_OVERDRAW_EX] = 'amount';
 		}
 	}
 
@@ -1920,7 +2148,6 @@ class FMErrors {
 	const PERM_TRANS_OTH	= 2;	// The user is not allowed to transfer others' funds
 	const PERM_PART_OWN	= 3;	// The user may not participate in transaction-system
 	const PERM_PART_OTH	= 4;	// The other involved user may not participate in transaction-system
-	const PERM_PART_ADM	= 5;	// The admin-user may not participate in transaction-system
 	const PERM_ADJ_OWN	= 6;	// The user may not adjust the own account
 	const PERM_ADJ_OTH	= 7;	// The user may not adjust other accounts
 
@@ -1957,8 +2184,7 @@ function fm_get_error($error) {
 		case FMErrors::PERM_TRANS_OWN:		return t('You are not allowed to transfer your own funds.');
 		case FMErrors::PERM_TRANS_OTH:		return t('You are not allowed to transfer others\' funds.');
 		case FMErrors::PERM_PART_OWN:		return t('You are not allowed to participate in transactions.');
-		case FMErrors::PERM_PART_OTH:		return t('This user is not allowed to participate in transactions.');
-		case FMErrors::PERM_PART_ADM:		return t('The administrator is not allowed to participate in transactions.');
+		case FMErrors::PERM_PART_OTH:		return t('This account is not allowed to participate in transactions.');
 		case FMErrors::PERM_ADJ_OWN:		return t('You are not allowed to adjust your own account.');
 		case FMErrors::PERM_ADJ_OTH:		return t('You are not allowed to adjust other accounts.');
 
@@ -1974,7 +2200,7 @@ function fm_get_error($error) {
 
 		case FMErrors::TTYPE_INVALID:		return t('The transaction-type is invalid.');
 
-		case FMErrors::SIGNATURE_MISMATCH:	return '';	// Signature-errors are handled by fratler_money_hash_verify().
+		case FMErrors::SIGNATURE_MISMATCH:	''; #return t('Signature mismatch detected. Please contact an administrator immediately!');
 
 		default: return t('An unknown error occured. Your transaction could not be completed.');
 	}

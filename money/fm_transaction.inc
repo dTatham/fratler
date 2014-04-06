@@ -30,6 +30,7 @@ function _fm_map_ttypes($parent) {
  * 	Either 'transfer' or 'adjustment' (parsed from the URI)
  */
 function fm_transaction_form($form, &$form_state, $entity, $type) {
+	drupal_set_title($type == 'transfer' ? t('New transfer') : t('New adjustment'), PASS_THROUGH);
 	global $user;
 
 	// Call me paranoid...
@@ -47,20 +48,20 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
 		// Grab all the accounts the user can transfer from
 		$sids = array();
 		foreach	(module_implements('fm_transaction_sids') as $module)
-			foreach (module_invoke($module, 'fm_transaction_sids', $user, $type) as $sid => $name)
-				$sids[$sid] = $name;
+			foreach (module_invoke($module, 'fm_transaction_sids', $user, $type) as $sid => $account)
+				$sids[$sid] = $account;
 
 		// Make sure user-accounts show up first
 		natcasesort($sids);
 
 		if (!$entity->counter)		// Don't need the sid when adjusting
 			$entity->sid = 0;
-		else if (count($sids) == 1 || user_access('transfer other funds'))
+		else if (count($sids) == 1 || fratler_accounts_access(FAcPerm::TRANSFER_ALL))
 			$form['sid'] = array(
-				'#type'		=> user_access('transfer other funds') ? 'textfield' : 'value',
+				'#type'		=> fratler_accounts_access(FacPerm::TRANSFER_ALL) ? 'textfield' : 'value',
 				'#title'	=> t('Sender'),
 				'#required'	=> true,
-				'#default_value' => isset($sids[$user->uid]) ? fratler_money_format_account($user->uid) : fratler_money_format_account(key($sids)),
+				'#default_value' => $sids[$user->uid]->name,
 				'#autocomplete_path' => 'fratler/fm_autocomplete/sid/' . $type,
 			);
  		else 
@@ -78,8 +79,8 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
 			'#type'		=> 'textfield',
 			'#title'	=> $entity->counter ? t('Recipient') : t('Account'),
 			'#required'	=> true,
-			'#default_value' => ($entity->tid <> 0) ? _fm_format_account($entity->rid) : (!$entity->counter && !user_access('adjust other accounts') ? _fm_format_account($user->uid) : ''),	// TODO: finalize this one once dev is complete
-			'#disabled'	=> (!$entity->counter && !user_access('adjust other accounts')) ? true : false,
+			'#default_value' => ($entity->tid <> 0) ? fratler_money_account_load($entity->rid)->name : (!$entity->counter && !fratler_accounts_access(FAcPerm::ADJUST_OTHER) ? $sids[$user->uid]->name : ''),	// TODO: finalize this one once dev is complete
+			'#disabled'	=> (!$entity->counter && !fratler_accounts_access(FAcPerm::ADJUST_OTHER)) ? true : false,
 			'#autocomplete_path' => 'fratler/fm_autocomplete/rid/' . $type,
 		);
 
@@ -122,17 +123,28 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
 		);
 
 		return $form;
-	} else {
+	} 
+	// Display confirm-page
+	else {
 		$form['fratler_transaction'] = array(	// Entity-Container - no touching!
 			'#type'		=> 'value',
 			'#value'	=> $entity,
 		);
 
+		$rid = fratler_money_account_load($entity->rid);
+		$entity->balance_rid = $rid->balance+$entity->amount;
+		if ($entity->counter) {
+			$sid = fratler_money_account_load($entity->sid);
+			$entity->balance_sid = $sid->balance-$entity->amount;
+		}
 		// We're gonna hijack this for a moment
-		$entity->balance = $entity->counter ? fm_get_balance($entity->sid)-$entity->amount : fm_get_balance($entity->rid)+$entity->amount;
+#		$entity->balance = $entity->counter ? $sid->balance-$entity->amount : $rid->balance+$entity->amount;
 
 		// Draw me like one of your French tables...
-		$markup = fm_display_transaction($entity, FMTransactionStyle::FM_DEFAULT ^ FMTransactionStyle::FM_TID ^ FMTransactionStyle::FM_SIGNATURE);
+		$style = FMTransactionStyle::FM_DEFAULT ^ FMTransactionStyle::FM_TID ^ FMTransactionStyle::FM_SIGNATURE;
+		if (!$entity->counter)
+			$style ^= FMTransactionStyle::FM_BAL_SID;
+		$markup = fm_display_transaction($entity, $style);
 
 		// Calculate the new acount-balance
 		$entity->balance = fm_get_balance($entity->rid) + $entity->amount;
@@ -147,7 +159,7 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
 			'#default_value' => 0,
 		);
 
-		return confirm_form($form, t('Are you sure you want to proceed?'), isset($_GET['destination']) ? $_GET['destination'] : 'fratler/transaction/new/' . $type, '', t('Proceed'));
+		return confirm_form($form, t('Are you sure you want to proceed?'), isset($_GET['destination']) ? $_GET['destination'] : 'fratler/transaction/' . $type, '', t('Proceed'));
 
 	}
 
@@ -230,7 +242,7 @@ function fm_transaction_form_submit($form, &$form_state) {
 	$entity = fratler_money_transaction_save($entity);
 
 	if (!$form_state['values']['create_new'])
-		$form_state['redirect'] = 'fratler/transaction/view/' . $entity->tid;
+		$form_state['redirect'] = 'fratler/transaction/' . $entity->tid;
  
 }
 

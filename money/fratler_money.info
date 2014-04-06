@@ -5,7 +5,7 @@ package = fratler_suite
 #dependencies = <somemod>
 dependencies[] = taxonomy
 
-configure = admin/config/fratler/money
+configure = admin/config/fratler/accounts
 
 files[] = fm_admin.inc
 files[] = fm_transaction.inc

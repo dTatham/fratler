@@ -10,10 +10,6 @@
  * @see fratler_money_menu()
  */
 function fratler_money_admin_form($form, &$form_state) {
-	// Load toolchain
-	if (!function_exists('_fm_cs'))
-		module_load_include('inc', 'fratler_money', 'fm_tools');
-
 	// Initialize formatter-object
 	$fmt	= _fm_nf_init();
 
@@ -44,18 +40,21 @@ function fratler_money_admin_form($form, &$form_state) {
 		'#default_value' => variable_get('fm_pager'),
 	);
 
+	// Link to rebuild the Transaction Accounts / Permissions
+	$form['general']['rebuild_perm'] = array(
+		'#type'		=> 'item',
+		'#title'	=> t('Rebuild Account table'),
+		'#description'	=> t('After changing !permissions, please remember to !rebuild the internal permissions table.', array(
+			'!permissions' => l(t('permissions'), 'admin/people/permissions', array('query' => drupal_get_destination())),
+			'!rebuild' => l(t('rebuild'), 'admin/config/fratler/accounts/recreate_accounts', array('fragment' => 'module-fratler_accounts', 'query' => drupal_get_destination())),)),
+	);
+
 	// Moving on to the transfer-settings
 	$form['transfer'] = array(
 		'#type'		=> 'fieldset',
 		'#title'	=> t('Transaction related settings'),
 	);
 
-	$form['transfer']['fm_trans_admin'] = array(
-		'#type'		=> 'checkbox',
-		'#title'	=> t('Allow admin to participate in transactions'),
-		'#description'	=> t('Check this, if you want the admin-user to participate in the transaction-system (i.e. receive transfers).'),
-		'#default_value' => variable_get('fm_trans_admin'),
-	);		
 
 	// Maximum transaction-amount
 	$form['transfer']['fm_trans_max'] = array(
