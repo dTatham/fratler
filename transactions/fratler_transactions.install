@@ -1,0 +1,171 @@
+<?php
+// vim:fenc=utf-8:ft=php:ai:si:ts=2:sw=2:et:nu:fdm=indent:fdn=1:
+
+function fratler_transactions_schema() {
+  $schema = array();
+  $schema['fratler_transactions'] = array(
+      'fields' => array(
+        'tid'  => array(
+          'type'    => 'serial',
+          'unsigned'  => true,
+          'not null'  => true,
+          'description'  => 'The consecutive transaction-ID',
+          'size'    => 'big',
+          ),
+        'ttype'  => array(
+          'type'    => 'int',
+          'length'  => 5,
+          'description'  => 'Taxonomy-reference to the nature of transaction',
+          ),
+        'rid'  => array(
+          'type'    => 'int',
+          'length'  => 5,
+          'unsigned'  => false,
+          'description'  => 'The userID of the recipient (negative values reserved for master-accounts)',
+          ),
+        'sid'  => array(
+          'type'    => 'int',
+          'length'  => 5,
+          'unsigned'  => false,
+          'description'  => 'The userID of the sender (negative values reserved for master-accounts)',
+          ),
+        'iid'  => array(
+          'type'    => 'int',
+          'length'  => 5,
+          'unsigned'  => false,
+          'description'  => 'The userID of the initiator (if it was a 3rd party transaction)',
+          ),
+        'txt'  => array(
+          'type'    => 'text',
+          'description'  => 'A note that goes with the transaction',
+          ),
+        'amount' => array(
+          'type'    => 'numeric',
+          'precision'  => 15,
+          'scale'    => 2,
+          'not null'  => true,
+          'unsigned'  => false,
+          'description'  => 'The amount... d\'uh',
+          ),
+        'balance' => array(
+          'type'    => 'numeric',
+          'precision'  => 15,
+          'scale'    => 2,
+          'unsigned'  => false,
+          'description'  => 'The new balance of the recipient',
+          ),
+        'tstamp' => array(
+          'type'    => 'int',
+          'description'  => 'The UNIX-Timestamp of the transaction',
+          ),
+        'signature' => array(
+          'type'    => 'blob',
+          'description'  => 'The binary representation of the transaction-signature',
+          ),
+        ),
+
+        'indexes' => array(
+          'idx_tstamp'  => array('tstamp'),
+          'idx_rid'  => array('rid'),
+          'idx_sid'  => array('sid'),
+          'idx_iid'  => array('iid'),
+          ),
+        'primary key' => array('tid'),
+        'description' => 'Holds all transactional data since the last archive-run',
+        );
+  return $schema;
+}
+
+function fratler_transactions_install() {
+  
+  // Create a vocabulary holding the transaction-types and save the vid for later use
+  $vocabulary  = (object) array(
+      'name'    => t('Transaction-Types'),
+      'description'  => t('Fratler Money Transaction-Types. DO NOT REMOVE THIS VOCABULARY. I\'m serious!'),
+      'machine_name'  => 'ft_types',
+      'module'  => 'fratler_transactions',
+      );
+  taxonomy_vocabulary_save($vocabulary);
+  variable_set('ft_vocab', $vocabulary->vid);
+
+  // Populate the vocabulary with some generic transaction-types
+  // Transfers
+  $transactions  = (object) array(
+      'name'    => t('Transfers'),
+      'description'  => t('Transfer transaction types'),
+      'parent'  => array(0),
+      'vid'    => $vocabulary->vid,
+      );
+  taxonomy_term_save($transactions);
+  variable_set('ft_vocab_transfer', $transactions->tid);
+
+  // Standard-Transfers
+  $term     = (object) array(
+      'name'    => t('T', array(), array('context' => 'Abbreviation for Standard Transfer')),
+      'description'  => t('Standard Transfer'),
+      'parent'  => $transactions->tid,
+      'vid'    => $vocabulary->vid,
+      );
+  taxonomy_term_save($term);
+  variable_set('ft_vocab_transfer_term', $term->tid);
+
+  // Adjustments (transaction without counter-transactions)
+  $adjustments   = (object) array(
+      'name'    => t('Adjustments'),
+      'description'  => t('Adjustment transaction types'),
+      'parent'  => array(0),
+      'vid'    => $vocabulary->vid,
+      );
+  taxonomy_term_save($adjustments);
+  variable_set('ft_vocab_adjustment', $adjustments->tid);
+
+  // Adjustment-Type: Withdrawal
+  $term     = (object) array(
+      'name'    => t('W', array(), array('context' => 'Abbreviation for Withdrawal')),
+      'description'  => t('Withdrawal'),
+      'parent'  => $adjustments->tid,
+      'vid'    => $vocabulary->vid,
+      );
+  taxonomy_term_save($term);
+  variable_set('ft_vocab_adjustment_withdraw', $term->tid);
+
+  // Adjustment-Type: Deposit
+  $term    = (object) array(
+      'name'    => t('D', array(), array('context' => 'Abbreviation for Deposit')),
+      'description'  => t('Deposit'),
+      'parent'  => $adjustments->tid,
+      'vid'    => $vocabulary->vid,
+      );
+  taxonomy_term_save($term);
+  variable_set('ft_vocab_adjustment_deposit', $term->tid);
+
+
+  variable_set('ft_trans_max', 10);
+  variable_set('ft_overdraw_limit', 0);
+
+  drupal_set_message(t('Please remember seting the !permissions and !rebuild the Fratler Account table afterwards to enable Fratler Accounts. ' .
+      'You can also find the link in the !admin configuration.', array(
+                        '!permissions' => l(t('permissions'), 'admin/people/permissions', array('query' => drupal_get_destination())),
+                        '!rebuild' => l(t('rebuild'), 'admin/config/fratler/accounts/recreate_accounts', array('fragment' => 'module-fratler_accounts', 'query' => drupal_get_destination())),
+      '!admin' => l('Fratler Accounts', 'admin/config/fratler/accounts'))),
+    'warning');
+}
+
+function fratler_transactions_enable() {
+}
+
+
+function fratler_transactions_uninstall() {
+  @taxonomy_vocabulary_delete(variable_get('ft_vocab', -1));
+
+  variable_del('ft_vocab');
+  variable_del('ft_vocab_transfer');
+  variable_del('ft_vocab_transfer_term');
+  variable_del('ft_vocab_adjustment');
+  variable_del('ft_vocab_adjustment_withdraw');
+  variable_del('ft_vocab_adjustment_deposit');
+
+  variable_del('ft_trans_max');
+  variable_del('ft_overdraw_limit');
+
+}

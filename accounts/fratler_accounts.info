@@ -1,0 +1,13 @@
+name = Fratler Accounts
+description = Simple bookkeping for simple people
+core = 7.x
+package = fratler_suite
+
+configure = admin/config/fratler/accounts
+
+files[] = fac_admin.inc
+
+stylesheets[all][] = styles/fratler_accounts_main.css
+
+#scripts[] = 
+

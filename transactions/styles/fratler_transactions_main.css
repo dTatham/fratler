@@ -1,0 +1,55 @@
+.fm_numeric, .fm_check_ok, .fm_check_fail {
+	text-align: right;
+}
+.fm_credit, .fm_check_ok {
+	color: #2BA93D;
+/*	font-weight: bold; */
+}
+
+.fm_debit, .fm_check_fail {
+	color: #bb3333;
+/*	font-weight: bold; */
+}
+
+.fm_fingerprint {
+	font-family:courier;
+	text-align: right;
+}
+
+.fm_message {
+	width: 100%;
+	white-space: normal;
+}
+
+.fm_transaction {
+	white-space: nowrap;
+}
+
+.fratler_amount {
+	text-align: right;
+}
+.fm_multiheader {
+	text-align: center;
+}
+
+.fm_filter_label {
+	font-weight: normal;
+	background-color: #ff00ff;
+	width: 10em;
+	float: left;
+}
+.fm_search_field {
+	text-align: right;
+}
+
+.fm_overview {
+	width: auto;
+}
+
+
+@media print {
+	.fm_search_field {
+		display: none;
+	}
+}
+

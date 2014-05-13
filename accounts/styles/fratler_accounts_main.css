@@ -1,0 +1,55 @@
+.fac_numeric, .fac_check_ok, .fac_check_fail {
+	text-align: right;
+}
+.fac_credit, .fac_check_ok {
+	color: #2BA93D;
+/*	font-weight: bold; */
+}
+
+.fac_debit, .fac_check_fail {
+	color: #bb3333;
+/*	font-weight: bold; */
+}
+
+.fac_fingerprint {
+	font-family:courier;
+	text-align: right;
+}
+
+.fac_message {
+	width: 100%;
+	white-space: normal;
+}
+
+.fac_transaction {
+	white-space: nowrap;
+}
+
+.fratler_amount {
+	text-align: right;
+}
+.fac_multiheader {
+	text-align: center;
+}
+
+.fac_filter_label {
+	font-weight: normal;
+	background-color: #ff00ff;
+	width: 10em;
+	float: left;
+}
+.fac_search_field {
+	text-align: right;
+}
+
+.fac_overview {
+	width: auto;
+}
+
+
+@media print {
+	.fac_search_field {
+		display: none;
+	}
+}
+

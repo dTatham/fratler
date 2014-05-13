@@ -1,0 +1,72 @@
+<?php
+/* vim: set filetype=php expandtab tabstop=2 shiftwidth=2 autoindent smartindent: */
+
+function fratler_accounts_schema() {
+  return array('fratler_accounts' => array(
+    'fields' => array(
+      'aid'  => array(
+        'type'    => 'int',
+        'not null'  => true,
+        'description'  => 'The account-ID; Master-Accounts have an aid < 0',
+        ),
+      'balance' => array(
+        'type'    => 'numeric',
+        'precision'  => 15,
+        'scale'    => 2,
+        'not null'  => true,
+        'default'  => 0,
+        'description'  => 'The current balance of the given aid',
+        ),
+      'active' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'description' => 'Whether the account is active or not.',
+      ),
+      'state' => array(
+        'type'    => 'int',
+        'size'    => 'normal',
+        'description'  => 'A bitfield holding the account\'s permissions.',
+      ),
+      'blocked' => array(
+        'type'    => 'int',
+        'size'    => 'tiny',
+        'description'  => 'Whether the account is blocked by the system, e.g. due to a signature mismatch.',
+      ),
+      'name' => array(
+        'type'    => 'varchar',
+        'length'  => 255,
+        'description'  => 'The account name (to reduce queries)',
+      ),
+      'tstamp' => array(
+        'type'    => 'int',
+        'description'  => 'The timestamp of the last transaction',
+        ),
+      'signature' => array(
+        'type'    => 'blob',
+        'description'  => 'The binary representation of the balance-signature',
+        ),
+      'last_trans' => array(
+        'type'    => 'int',
+        'description'  => 'The last transaction-ID that affected the balance',
+        ),
+      ),
+    'primary key'  => array('aid'),
+    'description'  => 'Holds all account-balances',
+  ));
+}
+
+function fratler_accounts_install() {
+  // Some basic settings
+  variable_set('fac_locale', 'C');
+  variable_set('fac_pager', 10);
+}
+
+function fratler_accounts_enable() {
+  // Rebuild the permissions
+  fratler_accounts_rebuild_permissions();
+}
+
+function fratler_accounts_uninstall() {
+  variable_del('fac_locale');
+  variable_del('fac_pager');
+}

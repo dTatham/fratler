@@ -1,0 +1,17 @@
+name = Fratler Transactions
+description = Transaction functionality for Fratler Accounts
+core = 7.x
+package = fratler_suite
+#dependencies = <somemod>
+dependencies[] = fratler_accounts 
+dependencies[] = taxonomy
+
+configure = admin/config/fratler/transactions
+
+files[] = ft_admin.inc
+files[] = ft_transaction.inc
+
+stylesheets[all][] = styles/fratler_transactions_main.css
+
+#scripts[] = 
+
