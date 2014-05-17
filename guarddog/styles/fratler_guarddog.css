@@ -1,0 +1,32 @@
+table.admin-fratler-guarddog-singlet {
+  width: auto;
+  max-width: 70%;
+}
+table.admin-fratler-guarddog-singlet td {
+  text-align: left;
+  width: 100%;
+  white-space: pre-wrap;
+}
+
+table.admin-fratler-guarddog-singlet th {
+  white-space: nowrap;
+}
+
+table.admin-fratler-guarddog td.icon {
+  background: no-repeat center;
+  width: 16px;
+}
+
+table.admin-fratler-guarddog-singlet td.icon {
+  background: no-repeat left; 
+  width: 16px;
+}
+table.admin-fratler-guarddog tr.fratler-guarddog-warning td.icon {
+  background-image: url(../../../../../../misc/message-16-warning.png);
+}
+table.admin-fratler-guarddog tr.fratler-guarddog-error td.icon,
+table.admin-fratler-guarddog tr.fratler-guarddog-critical td.icon,
+table.admin-fratler-guarddog tr.fratler-guarddog-alert td.icon,
+table.admin-fratler-guarddog tr.fratler-guarddog-emerg td.icon {
+  background-image: url(../../../../../../misc/message-16-error.png);
+}

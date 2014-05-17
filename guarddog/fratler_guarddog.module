@@ -1,0 +1,825 @@
+<?php
+/* 
+ * vim:fenc=utf-8:ft=php:ai:si:ts=2:sw=2:et:nu:fdm=indent:fdn=1:
+ */
+/**
+ * @file
+ * Meet Gini, the horrid guarddog of the fratlerverse.
+ * (c) 2014 Daniel Zauner aka dTatham the Horrible
+ */
+
+// If and how often issues should be logged with watchdog
+define('FRATLER_GUARDDOG_WATCHDOG_NONE', 0);
+define('FRATLER_GUARDDOG_WATCHDOG_FIRST', 1);
+define('FRATLER_GUARDDOG_WATCHDOG_ALL', 2);
+
+/**
+ * Implements hook_permission()
+ */
+function fratler_guarddog_permission() {
+  $perms = array();
+
+  $perms['access guarddog issues'] = array(
+    'title'  => t('View Guarddog Issues'),
+  );
+
+  return $perms;
+}
+
+/**
+ * Implements hook_menu()
+ */
+function fratler_guarddog_menu() {
+  return array(
+    'admin/reports/fratler' => array(
+      'title'    => 'Fratler Guarddog Issues',
+      'description'  => 'Access reports and see what Gini has been up to.',
+      'page callback'  => 'fratler_guarddog_overview',
+      'access arguments' => array('access guarddog issues'),
+    ),
+    'admin/reports/fratler/issue/%fratler_guarddog_issue' => array(
+      'title'   => 'Fratler Guarddog Issue',
+      'title callback' => 'fratler_guarddog_issue_title',
+      'title arguments' => array(4),
+      'access arguments' => array('access guarddog issues'),
+      'page callback' => 'fratler_guarddog_issue_display',
+      'page arguments' => array(4),
+    ),
+    'admin/reports/fratler/issue/%fratler_guarddog_issue/solve' => array(
+      'title'   => 'Solve Issue',
+      'access arguments' => array('access guarddog issues'),
+      'page callback' => 'fratler_guarddog_issue_solve',
+      'page arguments' => array(4),
+      'type'  => MENU_CALLBACK,
+    ),
+  );
+}
+
+/**
+ * Menu callback to flag an issue as solved.
+ * This is the fallback operation in case a Guarddog Type was not exported with a link labelled 'solve'.
+ *
+ * @param issue
+ *  A fully-loaded Guarddog Issue object.
+ */
+function fratler_guarddog_issue_solve($issue) {
+  $issue->resolved = 1;
+  fratler_guarddog_issue_save($issue);
+  drupal_set_message(t('Gini marked issue #@issue as solved. Woof!', array('@issue' => $issue->iid)));
+  drupal_goto();
+}
+
+/**
+ * Page callback to display all issues
+ *
+ */
+function fratler_guarddog_overview() {
+  $classes = array(
+    WATCHDOG_DEBUG     => 'fratler-guarddog-debug',
+    WATCHDOG_INFO      => 'fratler-guarddog-info',
+    WATCHDOG_NOTICE    => 'fratler-guarddog-notice',
+    WATCHDOG_WARNING   => 'fratler-guarddog-warning',
+    WATCHDOG_ERROR     => 'fratler-guarddog-error',
+    WATCHDOG_CRITICAL  => 'fratler-guarddog-critical',
+    WATCHDOG_ALERT     => 'fratler-guarddog-alert',
+    WATCHDOG_EMERGENCY => 'fratler-guarddog-emerg',
+  );
+  $rows = array();
+  
+  $header = array(
+    'severity' => array(
+      'data'  => t('Severity'),
+    ),
+    'status' => array(
+      'data'  => t('Solved'),
+    ),
+    'tstamp' => array(
+      'data'  => t('Last occurrence'),
+    ),
+    'counter' => array(
+      'data'  => t('Total'),
+    ),
+    'module' => array(
+      'data' => t('Module'),
+    ),
+    'message' => array(
+      'data'  => t('Message'),
+    ),
+    'user' => array(
+      'data'  => t('User'),
+    ),
+  );
+
+  foreach (fratler_guarddog_issue_load_multiple() as $issue) {
+    $rows[] = array(
+      'data' => array(
+        'severity' => array('class' => 'icon'),
+        'status' => $issue->resolved ? '&#x2714' : '&#x2718',
+        'tstamp' => array('title' => t('First occurrence: @date', array('@date' => format_date($issue->tstamp_first, 'short'))), 'data' => format_date($issue->tstamp_last, 'short')),
+        'counter' => $issue->counter,
+        'module'  => array('title' => t('Type: @type', array('@type' => $issue->type->type_name)), 'data' => $issue->type->module_name),
+        'message' => l(truncate_utf8(filter_xss(t($issue->type->template, $issue->variables), array()), 56, TRUE, TRUE), 'admin/reports/fratler/issue/' . $issue->iid),
+        'user'  => format_username(user_load($issue->uid)),
+      ),
+      'class' => array($classes[$issue->type->severity]),
+    ); 
+  }
+
+  return array(
+    '#theme'  => 'table',
+    '#header'  => $header,
+    '#rows'    => $rows,
+    '#sticky'  => TRUE,
+    '#empty'  => t('No data available.'),
+    '#attributes'  => array(
+      'class'  => array('admin-fratler-guarddog'),
+    ),);
+}
+
+/**
+ * Helper function to render the title for the issue display.
+ *
+ * @param issue
+ *  The fully loaded Guarddog Issue object.
+ */
+function fratler_guarddog_issue_title($issue) {
+  return t('Fratler Guarddog - Issue #@id: @name', 
+    array(
+      '@id' => $issue->iid, 
+      '@name' => truncate_utf8(filter_xss(t($issue->type->type_name), array()), 32, TRUE, TRUE),
+    ));
+}
+
+
+/**
+ * Page callback to display a single issue.
+ *
+ * @param issue
+ *  The fully loaded Guarddog Issue object.
+ */
+function fratler_guarddog_issue_display($issue) {
+  $severity = $severity = watchdog_severity_levels();
+
+  // Change the 'solve' link to the standard wording.
+  // Drop in the toggle solve link in case it wasn't supplied.
+  if (!$issue->resolved && !array_key_exists('solve', $issue->type->link))
+    $issue->type->link['solve'] = current_path() . '/solve';
+
+  $ops = array();
+  $destination = drupal_get_destination();
+  // Render the operations links.
+  foreach ($issue->type->link as $link => $path) {
+    if ($issue->resolved && $link == 'solve')
+      continue;
+    $ops[] = l($link == 'solve' ? t('Solve issue') : t($link), format_string($path, $issue->variables), array('query' => array('destination' => $destination['destination'])));
+  }
+
+  $rows = array( 
+    'iid' => array(
+      'title'   => array('data' => t('Issue #'), 'header' => TRUE),
+      'content' => array('data' => $issue->iid),
+    ),
+    'severity' => array(
+      'title'   => array('data' => t('Severity'), 'header' => TRUE),
+      'content' => array('data' => $severity[$issue->type->severity]),
+    ),
+    'solved'  => array(
+      'title' => array('data' => t('Solved'), 'header' => TRUE),
+      'content' => array('data' => $issue->resolved ? '&#x2714' : '&#x2718'),
+    ),
+    'watchdog' => array(
+      'title'   => array('data' => t('Watchdog-Entry?'), 'header' => TRUE),
+      'content' => array('data' => 
+        ($issue->type->watchdog > 0 ? '&#x2714' : '&#x2718') . 
+        ($issue->type->watchdog == FRATLER_GUARDDOG_WATCHDOG_FIRST ?  ' ' . t('(first occurrence only)') : '')),
+    ),
+    'module_name' => array(
+      'title'   => array('data' => t('Module'), 'header' => TRUE),
+      'content' => array('data' => $issue->type->module_name),
+    ),
+    'type_name' => array(
+      'title'   => array('data' => t('Type'), 'header' => TRUE),
+      'content' => array('data' => $issue->type->type_name),
+    ),
+    'first_occurrence' => array(
+      'title'   => array('data' => t('First occurrence'), 'header' => TRUE),
+      'content' => array('data' => format_date($issue->tstamp_first, 'short')),
+    ),
+    'last_occurrence' => array(
+      'title'   => array('data' => t('Last occurrence'), 'header' => TRUE),
+      'content' => array('data' => format_date($issue->tstamp_last, 'short')),
+    ),
+    'counter' => array(
+      'title'   => array('data' => t('Total occurrences'), 'header' => TRUE),
+      'content' => array('data' => $issue->counter),
+    ),
+    'user'  => array(
+      'title'   => array('data' => t('User'), 'header' => TRUE),
+      'content' => array('data' => format_username(user_load($issue->uid))),
+    ),
+    'hostname' => array(
+      'title'   => array('data' => t('Hostname'), 'header' => TRUE),
+      'content' => array('data' => $issue->hostname),
+    ),
+    'message' => array(
+      'title'   => array('data' => t('Message'), 'header' => TRUE),
+      'content' => array('data' => filter_xss(t($issue->type->template, $issue->variables), array())),
+    ),
+    'ops' => array(
+      'title'   => array('data' => t('Operations'), 'header' => TRUE),
+      'content' => theme('item_list', array('items' => $ops)),
+    ),
+
+
+  );
+
+  return array(
+    '#theme'  => 'table',
+    '#header' => array(),
+    '#rows' => $rows,
+    '#sticky' => TRUE,
+    '#empty'  => t('No data available.'),
+    '#attributes' => array(
+      'class' => array('admin-fratler-guarddog', 'admin-fratler-guarddog-singlet'),
+    ),);
+}
+
+/**
+ * Implements hook_entity_info()
+ */
+function fratler_guarddog_entity_info() {
+  return array(
+    'fratler_guarddog_type' => array(
+      'label'    => t('Fratler Guarddog Issue Type'),
+      'controller class' => 'FratlerGuarddogTypeController',
+      'base table'  => 'fratler_guarddog_types',
+      'fieldable'  => FALSE,
+      'entity keys'  => array(
+        'id'  => 'tid',
+        'label' => 'type_name',
+      ),
+    ),
+    'fratler_guarddog_issue' => array(
+      'label'   => t('Fratler Guarddog Issue'),
+      'controller class'  => 'FratlerGuarddogIssueController',
+      'base table'  => 'fratler_guarddog_issues',
+      'fieldable'   => FALSE,
+      'uri callback' => 'fratler_guarddog_uri',
+      'entity keys' => array(
+        'id'  => 'iid',
+      ),
+    ),
+  );
+}
+
+/**
+ * Render the issue ID into a URI
+ *
+ * @param iid
+ *   The ID of the Issue
+ *
+ * @return
+ *   An array with 'path' pointing to the reports interface.
+ */
+function fratler_guarddog_uri($iid) {
+  return array(
+    'path'  => 'admin/reports/fratler/issue/' . $iid,
+  );
+}
+
+/**
+ * FratlerGuarddogTypeController extends DrupalDefaultEntityController
+ *
+ * Entity definition and functions for Fratler Guarddog Issue Types
+ */
+class FratlerGuarddogTypeController
+  extends DrupalDefaultEntityController {
+
+    /**
+     * Create and return a new Guarddog Issue Type entity
+     */
+    public function create() {
+      $entity = new stdClass();
+      // Type-ID.
+      $entity->tid = 0;
+      // The name of the module registering the issue.
+      $entity->module_name = null;
+      // Human readable name of the issue type.
+      $entity->type_name  = null;
+      // Machine name of the issue type.
+      $entity->tympe_name_mach = null;
+      // Drupal Watchdog severity.
+      $entity->severity = 0;  
+      // The message template. Will be passed through t().
+      $entity->template = ''; 
+      // Template for a link associated with the issue
+      $entity->link = null;
+      // Log issues to watchdog?
+      $entity->watchdog = FRATLER_GUARDDOG_WATCHDOG_NONE;
+
+      return $entity;
+    }
+
+    /**
+     * Save issue type
+     */
+    public function save($entity) {
+      // Tell the world...
+      module_invoke_all('entity_presave', $entity, 'fratler_guarddog_type');
+
+      // Serialize the variables and link templates
+      if (is_array($entity->link))
+        $entity->link = serialize($entity->link);
+
+      // Determine whether we're creating a new account or updating an existing.
+      $primary_keys = $entity->tid ? 'tid' : array();
+
+      // Drop it in the DB
+      $state = drupal_write_record('fratler_guarddog_types', $entity, $primary_keys);
+
+      // Create the account
+      if ($state == SAVED_NEW)
+        drupal_set_message(t('Gini registered the issue-type %name for module %module.', array('%name' => $entity->type_name, '%module' => $entity->module_name)), 'status');
+      
+      else if ($state == SAVED_UPDATED)
+        drupal_set_message(t('Gini updated the issue-type %name for module %module.', array('%name' => $entity->type_name, '%module' => $entity->module_name)), 'status');
+
+      // Restore links for post mortem
+      $entity->link = unserialize($entity->link);
+
+      // Really tell the world...
+      module_invoke_all(empty($primary_keys) ? 'entity_insert' : 'entity_update', $entity, 'fratler_guarddog_type');
+
+      // Back to you, Tom!
+      return $entity;
+    }
+
+    /**
+     * Load issue types
+     *
+     * @param $tids
+     *   An array holding the tids to load
+     *
+     * @param conditions
+     *    Not used (deprecated)
+     */
+    public function load($tids = array(), $conditions = array()) {
+      $types = parent::load($tids, $conditions);
+      foreach ($types as $type) {
+        if (is_string($type->link))
+          $type->link = unserialize($type->link);
+      }
+      return $types;
+    }
+
+    /**
+     * Delete issue type
+     *
+     * @param entity
+     *   The fully-loaded Guarddog Type object to be deleted.
+     */
+    public function delete($entity) {
+      $this->deleteMultiple(array($entity));
+    }
+    /**
+     * Delete multiple issue types
+     *
+     * @param entities
+     *   An array holding the fully-loaded Guarddog Type objects to be deleted.
+     *
+     */
+    public function deleteMultiple($entities) {
+      $tids = array();
+      foreach ($entities as $entity) {
+        // TODO run an EFQ that pulls all the registered issues of type x and kills them too
+        // Not going through the "hook_entity_delete" to provide a little more convenience. That's how thoughtful I am!!!
+      }
+
+      if (!empty($entities)) {
+        $transaction = db_transaction();
+
+        try {
+          foreach ($entities as $entity) {
+            // Invoke hook_entity_delete()
+            module_invoke_all('entity_delete', $entity, 'fratler_guarddog_type');
+            $tids = $entity->tid;
+          }
+
+          db_delete('fratler_guarddog_types')->condition('tid', $tids, 'IN')->execute();
+        } catch (Exception $e) {
+          $transaction->rollback();
+          watchdog_exception('fratler_guarddog', $e);
+          throw $e;
+        }
+
+        drupal_set_message(format_plural(count($entities), 'Gini the magnificent guarddog fetched and deleted one issue type for %module.', 'Gini the magnificent guarddog fetched and deleted @count issue types for %module.', array('%module' => reset($entities)->module_name)), 'status');
+      }
+    }
+   }
+
+/**
+ * Load a single Guarddog Type object from the database.
+ *
+ * @param tid
+ *   The Type ID
+ *
+ * @param reset
+ *   Whether to reset the fratler_guarddog_type_load_multiple cache.
+ *
+ * @return
+ *   A fully populated Guarddog Type object or FALSE if nothing could be matched to $mid.
+ *
+ * @see FratlerGuarddogTypeController::load()
+ */
+function fratler_guarddog_type_load($tid = NULL, $reset = false) {
+  $tids = isset($tid) ? array($tid) : array();
+  $type = fratler_guarddog_type_load_multiple($tids, array(), $reset);
+  return $type ? reset($type) : FALSE;
+}
+
+/**
+ * Load multiple Guarddog Type objects from the database.
+ *
+ * @param tids
+ *   An array of Type IDs
+ *
+ * @param conditions
+ *   Not used as marked deprecated.
+ *
+ * @param reset
+ *   Whether to reset the fratler_guarddog_type_load_multiple cache.
+ *
+ * @return
+ *   An array of Guarddog Type objects indexed by mid.
+ *
+ * @see FratlerGuarddogTypeController::load()
+ */
+function fratler_guarddog_type_load_multiple($tids = false, $conditions = array(), $reset = false) {
+  return entity_load('fratler_guarddog_type', $tids, $conditions, $reset);
+}
+
+/**
+ * Save changes to a Guarddog Type or add a new one.
+ * To avoid confusion, this will just shove everything towards FratlerGuarddogTypeController::save().
+ *
+ * @param type 
+ *   The type to be saved. If $tid is omitted or 0, a new type will be created.
+ *
+ * @see FratlerGuarddogTypeController::save()
+ */
+function fratler_guarddog_type_save(&$type) {
+  return entity_get_controller('fratler_guarddog_type')->save($type);
+}
+
+/**
+ * Delete a Guarddog Type.
+ * To avoid confusion, this will just shove everything towards FratlerGuarddogTypeController::delete().
+ *
+ * @param type
+ *   The type to be deleted. 
+ *
+ * @see FratlerGuarddogTypeController::delete()
+ */
+function fratler_guarddog_type_delete(&$type) {
+  return entity_get_controller('fratler_guarddog_type')->delete($type);
+}
+
+/**
+ * Load a Guarddog Type by machine name
+ *
+ * @param name
+ *   String with the Guarddog Type's name.
+ *
+ * @return
+ *   A fully-loaded Guarddog object upon success or FALSE if none found.
+ */
+function fratler_guarddog_type_load_by_name($name, $module = '%') {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'fratler_guarddog_type')
+    ->propertyCondition('module_name', check_plain($module), 'LIKE')
+    ->propertyCondition('type_mach_name', check_plain($name));
+  $result = $query->execute();
+
+  if (!$result)
+    return false;
+
+  $type = fratler_guarddog_type_load_multiple(array_keys($result['fratler_guarddog_type']), array());
+  return reset($type);
+}
+
+
+/**
+ * FratlerGuarddogTypeController extends DrupalDefaultEntityController
+ *
+ * Entity definition and functions for Fratler Guarddog Issue Types
+ */
+class FratlerGuarddogIssueController
+  extends DrupalDefaultEntityController {
+
+    /**
+     * Create and return a new Guarddog Issue Type entity
+     *
+     * @param type
+     *  The fully-loaded Guarddog Type entity
+     */
+    public function create($type = NULL) {
+      global $user;
+
+      $entity = new stdClass();
+      // Issue ID.
+      $entity->iid = 0;
+      // The type ID of this issue (see {fratler_guarddog_types})
+      $entity->tid = empty($type) ? 0 : $type->tid;
+      // The variables to be inserted into the template
+      $entity->variables = null;
+      // The checksum
+      $entity->checksum = ''; 
+      // The timestamp of the first occurrence
+      $entity->tstamp_first = REQUEST_TIME; 
+      // The timestamp of the last occurrence
+      $entity->tstamp_last = 0;
+      // How often has the issue occured
+      $entity->counter = 0;
+      // Has the issue been resolved yet?
+      $entity->resolved = 0;
+      // The user.uid that triggered the issue
+      $entity->uid = $user->uid;
+      // The ip that triggered the last issue
+      $entity->hostname = ip_address(); 
+      // Attach the type to the issue; I'm lazy today, alright?!
+      $entity->type = $type;
+
+      return $entity;
+    }
+    /**
+     * Save issue type
+     */
+    public function save($entity) {
+      // Tell the world...
+      module_invoke_all('entity_presave', $entity, 'fratler_guarddog_issue');
+
+      // Generate checksum
+      $entity->checksum = _fratler_guarddog_checksum($entity->variables);
+
+      // Serialize the variables
+      if (is_array($entity->variables))
+        $entity->variables = serialize($entity->variables);
+
+      // Update last timestamp and ip
+      $entity->tstamp_last = REQUEST_TIME;
+      $entity->hostname    = ip_address();
+
+      // Increase counter
+      $entity->counter++;
+
+      // Determine whether we're creating a new account or updating an existing.
+      $primary_keys = $entity->iid ? 'iid' : array();
+
+      // Drop it in the DB
+      $state = drupal_write_record('fratler_guarddog_issues', $entity, $primary_keys);
+
+      // Restore variables for post mortem
+      $entity->variables = unserialize($entity->variables);
+
+      // Log it to watchdog if the Guarddog Type says so
+      $type = fratler_guarddog_type_load($entity->tid);
+
+      // Log a new request
+      if ((empty($primary_keys) && $type->watchdog == FRATLER_GUARDDOG_WATCHDOG_FIRST) || $type->watchdog == FRATLER_GUARDDOG_WATCHDOG_ALL)
+        watchdog($type->module_name, $type->template, $entity->variables, $type->severity, l(t('Conslut Gini'), 'admin/reports/fratler/issue/' . $entity->iid));
+
+
+      // Really tell the world...
+      module_invoke_all(empty($primary_keys) ? 'entity_insert' : 'entity_update', $entity, 'fratler_guarddog_issues');
+
+      // Back to you, Tom!
+      return $entity;
+    }
+
+    /**
+     * Load issue 
+     *
+     * @param $iids
+     *   An array holding the tids to load
+     *
+     * @param conditions
+     *    Not used (deprecated)
+     */
+    public function load($iids = array(), $conditions = array()) {
+      $issues = parent::load($iids, $conditions);
+      foreach ($issues as $issue) {
+        if (!is_array($issue->variables))
+          $issue->variables = unserialize($issue->variables);
+        // Slap the issue type to it
+        $issue->type = fratler_guarddog_type_load($issue->tid);
+      }
+      return $issues;
+    }
+
+    /**
+     * Delete issue type
+     *
+     * @param entity
+     *   The fully-loaded Guarddog Type object to be deleted.
+     */
+    public function delete($entity) {
+      $this->deleteMultiple(array($entity));
+    }
+    /**
+     * Delete multiple issue types
+     *
+     * @param entities
+     *   An array holding the fully-loaded Guarddog Type objects to be deleted.
+     *
+     */
+    public function deleteMultiple($entities) {
+      $iids = array();
+      if (!empty($entities)) {
+        $transaction = db_transaction();
+
+        try {
+          foreach ($entities as $entity) {
+            // Invoke hook_entity_delete()
+            module_invoke_all('entity_delete', $entity, 'fratler_guarddog_issue');
+            $iids = $entity->iid;
+          }
+
+          db_delete('fratler_guarddog_issues')->condition('iid', $iids, 'IN')->execute();
+        } catch (Exception $e) {
+          $transaction->rollback();
+          watchdog_exception('fratler_guarddog', $e);
+          throw $e;
+        }
+      }
+    }
+
+   }
+
+/**
+ * Load a single Guarddog Issue object from the database.
+ *
+ * @param iid
+ *   The Issue ID
+ *
+ * @param reset
+ *   Whether to reset the fratler_guarddog_issue_load_multiple cache.
+ *
+ * @return
+ *   A fully populated Guarddog Issue object or FALSE if nothing could be matched to $mid.
+ *
+ * @see FratlerGuarddogIssueController::load()
+ */
+function fratler_guarddog_issue_load($iid = NULL, $reset = false) {
+  $iids = isset($iid) ? array($iid) : array();
+  $issue = fratler_guarddog_issue_load_multiple($iids, array(), $reset);
+  return $issue ? reset($issue) : FALSE;
+}
+
+/**
+ * Load multiple Guarddog Issue objects from the database.
+ *
+ * @param iids
+ *   An array of Issue IDs
+ *
+ * @param conditions
+ *   Not used as marked deprecated.
+ *
+ * @param reset
+ *   Whether to reset the fratler_guarddog_issue_load_multiple cache.
+ *
+ * @return
+ *   An array of Guarddog Issue objects indexed by iid.
+ *
+ * @see FratlerGuarddogIssueController::load()
+ */
+function fratler_guarddog_issue_load_multiple($iids = false, $conditions = array(), $reset = false) {
+  return entity_load('fratler_guarddog_issue', $iids, $conditions, $reset);
+}
+
+/**
+ * Save changes to a Guarddog Issue or add a new one.
+ * To avoid confusion, this will just shove everything towards FratlerGuarddogIssueController::save().
+ *
+ * @param issue
+ *   The issue to be saved. If $iid is omitted or 0, a new issue will be created.
+ *
+ * @see FratlerGuarddogIssueController::save()
+ */
+function fratler_guarddog_issue_save(&$issue) {
+  return entity_get_controller('fratler_guarddog_issue')->save($issue);
+}
+
+/**
+ * Delete a Guarddog Issue.
+ * To avoid confusion, this will just shove everything towards FratlerGuarddogIssueController::delete().
+ *
+ * @param type
+ *   The type to be deleted. 
+ *
+ * @see FratlerGuarddogTypeController::delete()
+ */
+function fratler_guarddog_issue_delete(&$issue) {
+  return entity_get_controller('fratler_guarddog_issue')->delete($issue);
+}
+
+/**
+ * Load an unsolved Guarddog Issue by checksum
+ *
+ * @param checksum
+ *   String with the Guarddog Issue's checksum.
+ *
+ * @return
+ *   A fully-loaded Guarddog Issue object upon success or FALSE if none found.
+ */
+function fratler_guarddog_issue_load_by_checksum($checksum) {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'fratler_guarddog_issue')
+    ->propertyCondition('resolved', 0)
+    ->propertyCondition('checksum', $checksum);
+  $result = $query->execute();
+
+  if (!$result)
+    return false;
+
+  $issue = fratler_guarddog_issue_load_multiple(array_keys($result['fratler_guarddog_issue']), array());
+  return reset($issue);
+}
+
+/**
+ * Listen for new modules registering issue types.
+ * Implements hook_modules_installed().
+ *
+ * @param modules
+ *  An array of the modules that were installed.
+ */
+function fratler_guarddorg_modules_installed($modules) {
+  foreach($modules as $module) {
+    // Skip modules that don't implement our hook.
+    if (!module_hook($module, 'guarddog_info'))
+      continue;
+
+    foreach (module_invoke($module, 'guarddog_info') as $type_mach_name => $data) {
+      $type = entity_get_controller('fratler_guarddog_type')->create();
+      $type->module_name = $module;
+      $type->type_name = $data['type_name'];
+      $type->type_mach_name = $type_mach_name;
+      $type->severity = $data['severity'];
+      $type->link = $data['link'];
+      $type->template = $data['template'];
+      $type->watchdog = $data['watchdog'];
+
+      // Look up the report type by name.
+      // Assign tid in case something is found (we're updating).
+      if ($checkme = fratler_guarddog_type_load_by_name($type->type_mach_name, $module))
+        $type->tid = $checkme->tid;
+
+      fratler_guarddog_type_save($type);
+    }
+  }
+}
+
+/**
+ * Helper function to create the checksum for an array.
+ *
+ * @param data
+ *    The data to be hashed.
+ *
+ * @return
+ *    String containing the hash.
+ */
+function _fratler_guarddog_checksum($data) {
+  ksort($data);
+  return hash('sha256', json_encode($data, JSON_FORCE_OBJECT));
+}
+
+
+/**
+ * File an issue with the almighty Gini
+ *
+ * @param $module
+ *  The name of the module filing the issue.
+ *
+ * @param $type
+ *  The name of the issue type registered with Guarddog.
+ *
+ * @param variables
+ *  An array holding all the variables for the issue.
+ *
+ * @return
+ *  If the record insert or update failed, returns FALSE. If it succeeded, returns SAVED_NEW or SAVED_UPDATED, depending on the operation performed.
+ *
+ */
+function fratler_guarddog_issue($module, $type, $variables) {
+  if (!fratler_guarddog_type_load_by_name($type))
+    return FALSE;
+
+  // Try to load a previous issue by checksum
+  $issue = fratler_guarddog_issue_load_by_checksum(_fratler_guarddog_checksum($variables));
+
+  if (!$issue) {
+    $issue = entity_get_controller('fratler_guarddog_issue')->create(fratler_guarddog_type_load_by_name($type));
+  }
+
+  $issue->variables = $variables;
+  return fratler_guarddog_issue_save($issue);
+}

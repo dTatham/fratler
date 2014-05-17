@@ -1,0 +1,14 @@
+name = Fratler Guarddog
+description = Guarddog for the Fratler Suite - you may call her Gini.
+core = 7.x
+package = fratler_suite
+#configure = admin/config/fratler/guarddog
+#dependencies = <somemod>
+#dependencies[] = 
+
+#files[] = fg_admin.inc
+
+stylesheets[all][] = styles/fratler_guarddog.css
+
+#scripts[] = 
+

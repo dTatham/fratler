@@ -1,0 +1,138 @@
+<?php
+/*
+ * vim:fenc=utf-8:ft=php:ai:si:ts=2:sw=2:et:nu:fdm=indent:fdn=1:
+ */
+
+/**
+ * Implements hook_schema()
+ */
+function fratler_guarddog_schema() {
+  $schema = array();
+  $schema['fratler_guarddog_types'] = array(
+      'fields' => array(
+        'tid'  => array(
+          'type'    => 'serial',
+          'unsigned'  => TRUE,
+          'not null'  => TRUE,
+          'description'  => 'The ID of the issue type.',
+          ),
+        'module_name' => array(
+          'type'    => 'varchar',
+          'length'    => '128',
+          'description'  => 'The module exposing the issue',
+          ),
+        'type_name'  => array(
+          'type'    => 'varchar',
+          'description'  => 'The human readable name of the issue type.',
+          'length'  => 128,
+          ),
+        'type_mach_name'  => array(
+          'type'    => 'varchar',
+          'description'  => 'The machine name of the issue type.',
+          'length'  => 128,
+          ),
+        'severity'  => array(
+          'type'    => 'int',
+          'description'  => "The severity of the issue (Drupal watchdog severity).",
+          'length'  => 128,
+          ),
+        'template'  => array(
+          'type'    => 'varchar',
+          'description'  => 'The template string for the issue.',
+          'length'  => 255,
+          ),
+        'link' => array(
+          'type'  => 'blob',
+          'description' => 'A serialized array with links to inspect / fix the issue. Placeholders are shared with the description.',
+        ),
+        'watchdog' => array(
+          'type'  => 'int',
+          'size'  => 'tiny',
+          'description' => 'An enum indicating if / how often an issue should be logged with watchdog.',
+        ),
+      ),
+
+      'indexes' => array(
+        'idx_tid'  => array('tid'),
+        ),
+      'primary key' => array('tid'),
+      'description' => 'Holds the templates for the various issue types registered with fratler_guarddog.',
+      );
+
+  $schema['fratler_guarddog_issues'] = array(
+    'fields' => array(
+      'iid' => array(
+        'type'  => 'serial',
+        'not null'  => TRUE,
+        'unsigned'  => TRUE,
+        'description' => 'The issue ID.',
+      ),
+      'tid' => array(
+        'type'  => 'int',
+        'not null'  => TRUE,
+        'unsigned'  => TRUE,
+        'description' => 'A reference to fratler_goarddog_types.',
+      ),
+      'variables' => array(
+        'type'  => 'blob',
+        'description' => 'Serialized and orderd array of variables passed to the t() and l() functions.',
+      ),
+      'checksum'  => array(
+        'type'  => 'varchar',
+        'length'  => 64,
+        'description' => 'The SHA256 checksum of the variables + gid to find duplicates',
+      ),
+      'tstamp_first'  => array(
+        'type'  => 'int',
+        'description' => 'Unix timestamp of the issue / first occurance.',
+      ),
+      'tstamp_last'  => array(
+        'type'  => 'int',
+        'description' => 'Unix timestamp of the issue / last occurance.',
+      ),
+      'counter' => array(
+        'type'  => 'int',
+        'size'  => 'medium',
+        'description' => 'Counts how often the issue occured. Counter stops once issue is marked as resolved.',
+      ),
+      'resolved' => array(
+        'type'  => 'int',
+        'size'  => 'tiny',
+        'description' => 'Bool indicator if the issue is resolved or not.',
+      ),
+      'uid' => array(
+        'type'  => 'int',
+        'description' => 'The users.uid of the user who triggered the issue.',
+      ),
+      'hostname' => array(
+        'type'  => 'varchar',
+        'length' => 128,
+        'description' => 'Hostname of the user who triggered the event.',
+      ),
+    ),
+
+    'indexes' => array(
+      'idx_iid' => array('iid'),
+      'idx_chk' => array('checksum'),
+      'idx_rsv' => array('resolved'),
+    ),
+    'primary key' => array('iid'),
+    'description' => 'Holds the rendered issues filed with fratler_guarddog.',
+  );
+
+  return $schema;
+}
+/**
+ * Implements hook_install()
+ */
+function fratler_guarddog_install() {
+  // Some basic settings
+  
+  // Mirror guarddog logs in watchdog
+  variable_set('fg_mirror', TRUE);
+
+}
+
+function fratler_guarddog_uninstall() {
+  variable_del('fg_mirror');
+}
