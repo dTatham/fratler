@@ -752,13 +752,14 @@ function fratler_guarddog_issue_load_by_checksum($checksum) {
  * @param modules
  *  An array of the modules that were installed.
  */
-function fratler_guarddorg_modules_installed($modules) {
+function fratler_guarddog_modules_installed($modules) {
   foreach($modules as $module) {
     // Skip modules that don't implement our hook.
     if (!module_hook($module, 'guarddog_info'))
       continue;
 
     foreach (module_invoke($module, 'guarddog_info') as $type_mach_name => $data) {
+      debug($type_mach_name, 'adding for ' . $module);
       $type = entity_get_controller('fratler_guarddog_type')->create();
       $type->module_name = $module;
       $type->type_name = $data['type_name'];
