@@ -50,6 +50,13 @@ function fratler_guarddog_schema() {
           'size'  => 'tiny',
           'description' => 'An enum indicating if / how often an issue should be logged with watchdog.',
         ),
+      'collate_request' => array(
+        'type'  => 'int',
+        'size'  => 'tiny',
+        'unsigned' => TRUE,
+        'default' => 1,
+        'description' => 'Bool indicator if the issue is to be logged once per REQUEST_TIME or for every single occurrence.',
+      ),
       ),
 
       'indexes' => array(
@@ -98,6 +105,7 @@ function fratler_guarddog_schema() {
       'resolved' => array(
         'type'  => 'int',
         'size'  => 'tiny',
+        'unsigned' => TRUE,
         'description' => 'Bool indicator if the issue is resolved or not.',
       ),
       'uid' => array(

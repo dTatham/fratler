@@ -110,7 +110,16 @@ function fratler_guarddog_overview() {
     ),
   );
 
-  foreach (fratler_guarddog_issue_load_multiple() as $issue) {
+  // Gather the iids we need.
+  $query = new EntityFieldQuery(); 
+  $query->entityCondition('entity_type', 'fratler_guarddog_issue')
+    ->propertyCondition('resolved', 0)
+    ->propertyOrderBy('tstamp_last', 'DESC')
+    ->pager(30);
+  $results = $query->execute();
+  $iids = array_keys($results['fratler_guarddog_issue']);
+
+  foreach (fratler_guarddog_issue_load_multiple($iids) as $issue) {
     $rows[] = array(
       'data' => array(
         'severity' => array('class' => 'icon'),
@@ -119,21 +128,28 @@ function fratler_guarddog_overview() {
         'counter' => $issue->counter,
         'module'  => array('title' => t('Type: @type', array('@type' => $issue->type->type_name)), 'data' => $issue->type->module_name),
         'message' => l(truncate_utf8(filter_xss(t($issue->type->template, $issue->variables), array()), 56, TRUE, TRUE), 'admin/reports/fratler/issue/' . $issue->iid),
-        'user'  => format_username(user_load($issue->uid)),
+        'user'  => l(format_username(user_load($issue->uid)), 'user/' . $issue->uid),
       ),
       'class' => array($classes[$issue->type->severity]),
     ); 
   }
 
   return array(
-    '#theme'  => 'table',
-    '#header'  => $header,
-    '#rows'    => $rows,
-    '#sticky'  => TRUE,
-    '#empty'  => t('No data available.'),
-    '#attributes'  => array(
-      'class'  => array('admin-fratler-guarddog'),
-    ),);
+    'overview' => array(
+      '#theme'  => 'table',
+      '#header'  => $header,
+      '#rows'    => $rows,
+      '#sticky'  => TRUE,
+      '#empty'  => t('No data available.'),
+      '#attributes'  => array(
+        'class'  => array('admin-fratler-guarddog'),
+      ),
+    ),
+    'pager' => array(
+      '#theme' => 'pager',
+      '#weight' => 99,
+    ),
+  );
 }
 
 /**
@@ -159,6 +175,7 @@ function fratler_guarddog_issue_title($issue) {
  */
 function fratler_guarddog_issue_display($issue) {
   $severity = $severity = watchdog_severity_levels();
+  debug($issue->variables, 'vars');
 
   // Change the 'solve' link to the standard wording.
   // Drop in the toggle solve link in case it wasn't supplied.
@@ -215,7 +232,7 @@ function fratler_guarddog_issue_display($issue) {
     ),
     'user'  => array(
       'title'   => array('data' => t('User'), 'header' => TRUE),
-      'content' => array('data' => format_username(user_load($issue->uid))),
+      'content' => array('data' => l(format_username(user_load($issue->uid)), 'user/' . $issue->uid)),
     ),
     'hostname' => array(
       'title'   => array('data' => t('Hostname'), 'header' => TRUE),
@@ -307,15 +324,18 @@ class FratlerGuarddogTypeController
       // Human readable name of the issue type.
       $entity->type_name  = null;
       // Machine name of the issue type.
-      $entity->tympe_name_mach = null;
-      // Drupal Watchdog severity.
-      $entity->severity = 0;  
+      $entity->type_mach_name = null;
+      // Drupal Watchdog severity. 
+      // Defaults to drupal watchdog()'s default WATCHDOG_NOTICE.
+      $entity->severity = WATCHDOG_NOTICE;  
       // The message template. Will be passed through t().
       $entity->template = ''; 
       // Template for a link associated with the issue
       $entity->link = null;
       // Log issues to watchdog?
       $entity->watchdog = FRATLER_GUARDDOG_WATCHDOG_NONE;
+      // Collate occurrences per REQUEST_TIME?
+      $entity->collate_request = 1;
 
       return $entity;
     }
@@ -759,7 +779,6 @@ function fratler_guarddog_modules_installed($modules) {
       continue;
 
     foreach (module_invoke($module, 'guarddog_info') as $type_mach_name => $data) {
-      debug($type_mach_name, 'adding for ' . $module);
       $type = entity_get_controller('fratler_guarddog_type')->create();
       $type->module_name = $module;
       $type->type_name = $data['type_name'];
@@ -808,6 +827,7 @@ function _fratler_guarddog_checksum($data) {
  *
  * @return
  *  If the record insert or update failed, returns FALSE. If it succeeded, returns SAVED_NEW or SAVED_UPDATED, depending on the operation performed.
+ *  NOTE: The function will also return SAVED_UPDATED if the issue has already been logged for REQUEST_TIME and $type->collate_request is 1.
  *
  */
 function fratler_guarddog_issue($module, $type, $variables) {
@@ -817,6 +837,10 @@ function fratler_guarddog_issue($module, $type, $variables) {
   // Try to load a previous issue by checksum
   $issue = fratler_guarddog_issue_load_by_checksum(_fratler_guarddog_checksum($variables));
 
+  // If a previous event exists, check if REQUEST_TIME matches cancel in case we collate.
+  if (!empty($issue) && $issue->type->collate_request == 1 && $issue->tstamp_last == REQUEST_TIME) {
+    return SAVED_UPDATED;
+  }
   if (!$issue) {
     $issue = entity_get_controller('fratler_guarddog_issue')->create(fratler_guarddog_type_load_by_name($type));
   }
