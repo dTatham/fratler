@@ -3,6 +3,8 @@ description = Simple bookkeping for simple people
 core = 7.x
 package = fratler_suite
 
+dependencies[] = fratler_guarddog
+
 configure = admin/config/fratler/accounts
 
 files[] = fac_admin.inc

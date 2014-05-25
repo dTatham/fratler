@@ -39,6 +39,7 @@ interface FAcPerm {
   const ADJUST    = 384;
   const ALL_FAC    = 1544; // DISPLAY_ACC, OVERDRAW, IGNORE_BAR
   const ALL_TRANS    = 6646;
+  const DISP_MENU   = 8206;
 }
 
 /**
@@ -286,7 +287,7 @@ function fratler_accounts_menu() {
     'page callback'  => 'fratler_accounts_overview',
     'page arguments' => array(null),
     'access callback' => 'fratler_accounts_access',
-    'access arguments' => array('FAcPerm::PARTICIPATE'),
+    'access arguments' => array('FAcPerm::DISP_MENU'),
     'type'    => MENU_NORMAL_ITEM,
     'menu_name'  => 'user-menu',
   );
@@ -454,14 +455,13 @@ function fratler_accounts_overview($target = null) {
   $accounts = array();
 
   // Grab all the accounts the user can see
-  // TODO rename hook
   foreach (module_implements('fac_get_accounts') as $module) {
-    foreach (module_invoke($module, 'fac_get_accounts', $target, null) as $account) {
+    foreach (module_invoke($module, 'fac_get_accounts', $target) as $account) {
       // Index the array by name, prefix own account with !! and Master Accounts with ZZ to weigh them up/down.
       if ($account->aid == $user->uid)
         $accounts[strtolower('!! ' . $account->name)] = $account;
       else if ($account->aid < 0)
-        $accounts[strtolower('zz' . $account->name)] = $account;
+        $accounts[strtolower('zz ' . $account->name)] = $account;
       else
         $accounts[strtolower($account->name)] = $account; 
     }
@@ -509,6 +509,37 @@ function fratler_accounts_hash($entity) {
 }
 
 /**
+ * Export issue types to the almighty Gini.
+ * Implements hook_guarddog_info().
+ */
+function fratler_accounts_guarddog_info() {
+  return array(
+    'fa_sig_mismatch' => array(
+      'type_name' => 'Account signature mismatch',
+      'severity' => WATCHDOG_EMERGENCY,
+      'link' => array(
+        'Inspect account' => 'fratler/account/@aid'
+        // TODO: Insert "Solve" link
+      ),
+      'template' => "Signature mismatch for %user's account detected. Account has been locked. Please verify your database integrity before unlocking the account.",
+      'watchdog' => FRATLER_GUARDDOG_WATCHDOG_FIRST,
+      'collate_request'  => 1,
+    ),
+    'ft_sig_mismatch' => array(
+      'type_name' => 'Transaction signature mismatch',
+      'severity'  => WATCHDOG_EMERGENCY,
+      'link'      => array(
+        'Inspect transaction' => 'fratler/transaction/:tid',
+        // TODO: Insert "solve" link
+      ),
+      'template'  => 'Signature-Mismatch for transaction #:tid detected. Your database might have been compromised!',
+      'watchdog'  => FRATLER_GUARDDOG_WATCHDOG_FIRST,
+      'collate_request' => 1,
+    ),
+  );
+}
+
+/**
  * Verify the hash of a transaction / account.
  *
  * @param entity
@@ -538,31 +569,35 @@ function fratler_accounts_hash_verify($entity) {
   // If there's a mismatch, start the bitching and screaming!
   if (!$verdict) {
     if (isset($entity->aid)) {
-      watchdog('fratler_money', 'Signature-Mismatch for :user\'s account detected. Account has been locked. Your database might have been compromised!',
-        array(':user' => check_plain($entity->name)),
-        WATCHDOG_EMERGENCY,     // Yep. It's bad.
-        l(t('Inspect account'), 'fratler/account/' . check_plain($entity->aid) . '/statement'));
+      fratler_guarddog_issue('fratler_accounts', 
+        'fa_sig_mismatch', 
+        array('%user' => check_plain($entity->name), '@aid' => check_plain($entity->aid)));
+
       drupal_set_message(t('An error occured while verifying the signature of the account !name; ' . 
         'please contact an admin immediately.', 
         array('!name' => l(check_plain($entity->name), 'fratler/account/'.check_plain($entity->aid) . '/statement'))), 'error', false);
+
+      // Reset the FMAc signatures for the involved parties to prevent them from making a mess
+      db_query('UPDATE {fratler_accounts} SET blocked = 1, signature = NULL WHERE aid IN (:aids)', array(':aids' => array(check_plain($entity->aid))));
+      // Fire a hook, it might be a good idea to let the affected users know in some way...
+      // TODO Implement an .api.module file describing all the hooks
+      module_invoke_all('fac_account_block', array(check_plain($entity->aid)));
     }
     // Again, for convenience (and since FAc will be paired with FTrans in 99.9% of the time...)
     else {
-      watchdog('fratler_money', 'Signature-Mismatch for transaction #:tid detected. Your database might have been compromised!',
-        array(':tid' => check_plain($entity->tid)),
-        WATCHDOG_EMERGENCY,
-        l(t('Inspect transaction'), 'fratler/transaction/' . check_plain($entity->tid)));
+      fratler_guarddog_issue('fratler_accounts', 
+        'ft_sig_mismatch', 
+        array(':tid' => $entity->tid));
       drupal_set_message(t('An error occured while verifying the signature for transaction #!tid. ' . 
         'Involved accounts were locked to avoid further corruption. ' .
         'Please contact an admin immediately.', 
         array('!tid' => l(check_plain($entity->tid), 'fratler/transaction/'.check_plain($entity->tid)))), 'error', false);
 
       // Reset the FMAc signatures for the involved parties to prevent them from making a mess
-      db_query('UPDATE {fratler_money_balances} SET blocked = 1, signature = NULL WHERE aid IN (:aids)', array(':aids' => array(check_plain($entity->rid), check_plain($entity->sid))));
+      db_query('UPDATE {fratler_accounts} SET blocked = 1, signature = NULL WHERE aid IN (:aids)', array(':aids' => array(check_plain($entity->rid), check_plain($entity->sid))));
       // Fire a hook, it might be a good idea to let the affected users know in some way...
       // TODO Implement an .api.module file describing all the hooks
-      module_invoke_all('fac_account_block', check_plain($entity->rid));
-      module_invoke_all('fac_account_block', check_plain($entity->sid));
+      module_invoke_all('fac_account_block', array(check_plain($entity->rid), check_plain($entity->sid)));
     }
   }
 
@@ -928,21 +963,16 @@ function fratler_accounts_entity_info() {
 
 /**
  * Implements hook_fac_get_accounts(). Find every account-id that the user can get an overview / access.
- * TODO consider rename
  *
  * @param target
  *   The user to be checked (ID or object); if none given the current user is checked.
  *   If target 'all' is passed, this function will return all user-accounts (aid > 0).
  *
- * @param type
- *   The transaction type; not used in this context.
- *   TODO This might be a good idea to change it to a permission against which to check the individual accounts
- *
  * @return
  *   If the target is allowed to participate, an array with userID=>fratler_money_format_account().
  *   Otherwise an empty array is returned.
  */
-function fratler_accounts_fac_get_accounts($target = false, $type = false) {
+function fratler_accounts_fac_get_accounts($target = FALSE) {
   global $user;
 
   $matches = array();
@@ -969,10 +999,9 @@ function fratler_accounts_fac_get_accounts($target = false, $type = false) {
   // Only if the user is allowed to receive / transfer funds, this makes sense; 
   // For groups that were taken out of the rotation at some point, a case can be made to add 'display own transactions' to the list
   foreach ($matches as $match) {
-    if ($match && fratler_accounts_access(FAcPerm::PARTICIPATE, $match))
+    if ($target == 'all' || ($match && ($match->is_own || fratler_accounts_access(FAcPerm::PARTICIPATE, $match))))
       $output[$match->aid] = $match;
   }
-
   return $output;
 }
 
