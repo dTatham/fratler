@@ -175,7 +175,6 @@ function fratler_guarddog_issue_title($issue) {
  */
 function fratler_guarddog_issue_display($issue) {
   $severity = $severity = watchdog_severity_levels();
-  debug($issue->variables, 'vars');
 
   // Change the 'solve' link to the standard wording.
   // Drop in the toggle solve link in case it wasn't supplied.
