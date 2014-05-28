@@ -38,8 +38,9 @@
 	width: 10em;
 	float: left;
 }
-.fm_search_field {
-	text-align: right;
+.ft_search_field {
+  display: inline;
+	float: right;
 }
 
 .fm_overview {

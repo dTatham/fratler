@@ -49,8 +49,8 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
     // Grab all the accounts the user can transfer from
     $sids = array();
     foreach  (module_implements('fac_get_accounts') as $module)
-      foreach (module_invoke($module, 'fac_get_accounts', $user, $type) as $sid => $account)
-        $sids[$sid] = $account;
+      foreach (module_invoke($module, 'fac_get_accounts', $user, $type) as $account)
+        $sids[$account->name] = $account->name;
 
     // Make sure user-accounts show up first
     natcasesort($sids);
@@ -62,7 +62,7 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
         '#type'    => fratler_accounts_access(FacPerm::TRANSFER_ALL) ? 'textfield' : 'value',
         '#title'  => t('Sender'),
         '#required'  => true,
-        '#default_value' => $sids[$user->uid]->name,
+        '#default_value' => $sids[format_username($user)],
         '#autocomplete_path' => 'fratler/fac_autocomplete/sid/' . $type,
       );
      else 
@@ -71,7 +71,7 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
         '#title'  => t('Sender'),
         '#options'  => $sids,
         '#required'  => true,
-        '#default_value' => isset($sids[$user->uid]) ? $user->uid : 0,  
+        '#default_value' => isset($sids[format_username($user)]) ? format_username($user) : 0,  
         '#empty_option' => ' - ' . t('Select Account') . ' - ',
         '#empty_value'  => 0,
       );
@@ -220,10 +220,14 @@ function fm_transaction_form_validate($form, &$form_state) {
   $entity->balance = fratler_account_get_balance($entity->rid) + $entity->amount;
 
   // Do a dry-run on the transaction, to see, if it will go through
-  foreach (module_implements('fm_transaction_dry_run') as $module) {
-         foreach (module_invoke($module, 'fm_transaction_dry_run', $entity) as $error => $field) 
-      form_set_error($field, fm_get_error($error));
+  foreach (module_implements('ft_transaction_dry_run') as $module) {
+    foreach (module_invoke($module, 'ft_transaction_dry_run', $entity) as $error => $field)
+      form_set_error($field, ft_get_error($error));
   }
+
+  // Only if the dry-run was successful: greenlight the transaction.
+  if (empty(form_get_errors()))
+    $entity->signature_ok = TRUE;
 
   // Save up the entity
   form_set_value($form['fratler_transaction'], $entity, $form_state);

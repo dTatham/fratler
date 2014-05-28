@@ -77,7 +77,6 @@ function fratler_transactions_schema() {
 }
 
 function fratler_transactions_install() {
-  
   // Create a vocabulary holding the transaction-types and save the vid for later use
   $vocabulary  = (object) array(
       'name'    => t('Transaction-Types'),
@@ -152,6 +151,7 @@ function fratler_transactions_install() {
 }
 
 function fratler_transactions_enable() {
+  // TODO Update account balance after fratler_transactions has been enabled (issue #13)
 }
 
 

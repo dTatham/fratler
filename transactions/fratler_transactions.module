@@ -77,7 +77,7 @@ function fratler_transactions_menu() {
     'tab_parent'  => 'fratler/account',
   );
   // All transactions
-  $items['fratler/transaction/all'] = array(
+  $items['fratler/account/all/statement'] = array(
     'title'    => 'All transactions',
     'description'  => 'Display all transactions',
     'page callback'  => 'fratler_transaction_statement',
@@ -216,7 +216,6 @@ function fratler_transaction_statement($target = null) {
   }
 
   return array(
-    'filter'  => drupal_get_form('fratler_transaction_statement_filter'),
 
     'content'  => array(
       '#theme'  => 'table',
@@ -230,6 +229,7 @@ function fratler_transaction_statement($target = null) {
       '#markup'  => theme('pager'),
       '#weight'  => 10,
     ),
+    'filter'  => drupal_get_form('fratler_transaction_statement_filter'),
   );
 }
 
@@ -240,10 +240,11 @@ function fratler_transaction_statement($target = null) {
 function fratler_transaction_statement_filter($form, &$form_state) {
   $items = array();
   $aids = array();
+  global $user;
 
   // Grab all the accounts the user can access
   foreach (module_implements('fac_get_accounts') as $module)
-    foreach (module_invoke($module, 'fac_get_accounts') as $aid => $account)
+    foreach (module_invoke($module, 'fac_get_accounts', $user, 'display') as $aid => $account)
       $aids[$aid] = $account->name;
    
   natcasesort($aids);
@@ -252,8 +253,11 @@ function fratler_transaction_statement_filter($form, &$form_state) {
     return array();
 
   $items['cont'] = array(
-    '#type'  => 'container',
-    '#attributes' => array('class' => array('container-inline', 'fm_search_field')), 
+    '#type'  => 'fieldset',
+    '#title' => t('Switch accounts'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#attributes' => array('class' => array('container-inline')), 
   );
   if (fratler_accounts_access(FAcPerm::DISPLAY_ALL)) {
     $items['cont']['aname'] = array(
@@ -446,10 +450,10 @@ function fratler_transaction_display($entity = false, $style = FMTransactionStyl
   
   // If the user is allowed to transfer others' amounts but not to display, cut out the balances. It's the polite thing to do.
   if (!fratler_accounts_access(FAcPerm::DISPLAY_ALL | FAcPerm::DISPLAY_ACC)) { 
-    if ($style & FMTransactionStyle::FM_BAL_SID && $entity->sid != $user->uid) $style ^= FMTransactionStyle::FM_BAL_SID;
+    if ($style & FMTransactionStyle::FM_BAL_SID && $entity->sid != $user->uid && !fratler_accounts_access(FAcPerm::DISPLAY,NULL, $entity)) $style ^= FMTransactionStyle::FM_BAL_SID;
     if ($style & FMTransactionStyle::FM_BAL_RID && $entity->rid != $user->uid) $style ^= FMTransactionStyle::FM_BAL_RID;
   }
-
+ 
   return theme('table', array(
     'header'  => fratler_transactions_format_header($style),
     'empty'    => t('No transactions available.'),
@@ -718,14 +722,14 @@ function fratler_transaction_uri($tid) {
 }
 
 /**
- * FratlerMoneyTransactionControllerInterface definition
+ * FratlerTransactionControllerInterface definition
  *
  * This is the main hook for all transactions and while we're at it,
  * we'll define some handy functions.
  *
  * @see hook_entity_info_alter()
  */
-interface FratlerMoneyTransactionControllerInterface
+interface FratlerTransactionControllerInterface
   extends DrupalEntityControllerInterface {
     public function create();
     public function save($entity);
@@ -733,13 +737,13 @@ interface FratlerMoneyTransactionControllerInterface
   }
 
 /**
- * FratlerMoneyTransactionController extends DrupalDefaultEntityController
+ * FratlerTransactionController extends DrupalDefaultEntityController
  *
  * The data of all the transfers
  */
-class FratlerMoneyTransactionController
+class FratlerTransactionController
   extends DrupalDefaultEntityController
-  implements FratlerMoneyTransactionControllerInterface {
+  implements FratlerTransactionControllerInterface {
 
     /**
      * Create and return a new transaction-entity.
@@ -757,8 +761,8 @@ class FratlerMoneyTransactionController
       $entity->signature = null;   // The transaction-checksum
       $entity->balance = 0;    // The recipient's balance after a successful transaction
 
-      $entity->counter = true;   // Whether we need a counter-transaction (false = adjustment)
-      $entity->signature_ok = true;  // Signature is always OK in blank transactions.
+      $entity->counter = TRUE;   // Whether we need a counter-transaction (false = adjustment)
+      $entity->signature_ok = FALSE;  // I'm not a very trusting soul...
       return $entity;
     }
 
@@ -767,7 +771,7 @@ class FratlerMoneyTransactionController
      */
     public function save($entity) {
       // Invoke hook_entity_presave().
-      module_invoke_all('fm_transaction_presave', $entity);
+      module_invoke_all('ft_transaction_presave', $entity);
 
       // 'primary_keys' is used to determine whether we're dealing with an update or 
       // a new entry. So, if the entry already has an ID, we'll specify 'tid' as the key.
@@ -777,15 +781,29 @@ class FratlerMoneyTransactionController
       if (empty($entity->tid))
         drupal_write_record('fratler_transactions', $entity, $primary_keys);
 
-      // Now that we have the tid, add the hash to the existing record
-      $entity->signature = fratler_accounts_hash($entity);
-      drupal_write_record('fratler_transactions', $entity, array('tid'));
+      // Now that we have the tid, add the hash to the existing record,
+      // but only if the (previous) signature is OK.
+      if ($entity->signature_ok) {
+        // TODO insert watchdog
+        $entity->signature = fratler_accounts_hash($entity);
+        drupal_write_record('fratler_transactions', $entity, array('tid'));
+      }
 
       // Invoke post-save hook_fm_transaction_update() or hook_fm_transaction_new().
-      module_invoke_all(empty($entity->tid) ? 'fm_transaction_new' : 'fm_transaction_update', $entity);
+      module_invoke_all(empty($entity->tid) ? 'ft_transaction_new' : 'ft_transaction_update', $entity);
 
       // Clear the static cache
       $this->resetCache(array($entity->tid));
+
+      // Since it is essential that we update the accounts-database, this will not go through hooks.
+      if ($entity->rid <> 0) {
+        $account = fratler_account_load($entity->rid);
+        $account->balance = $entity->balance;
+        $account->last_trans = $entity->tid;
+        $account->tstamp = $entity->tstamp;
+        fratler_account_save($account);
+      }
+
 
       // OK, we saved the original transaction; if we're to do a counter (and only if!!!), work some magic.
       if ($entity->counter) {
@@ -810,6 +828,8 @@ class FratlerMoneyTransactionController
         return $this->save($c_entity);
       }
 
+      // Sanitize the object.
+      unset($entity->counter);
       return $entity;
     }
 
@@ -844,7 +864,7 @@ class FratlerMoneyTransactionController
       $entities = parent::load($ids, array());
       foreach ($entities as $entity) {
         // Check the signature - it's gonna happen sooner or later anyways ;)
-        $entity->signature_ok   = fratler_accounts_hash_verify($entity, true);
+        $entity->signature_ok   = fratler_accounts_hash_verify($entity);
 
         // Clean up the account names and txt (avoid xss etc.)
         $entity->rid_name  = check_plain($entity->rid_name);
@@ -873,7 +893,7 @@ function fratler_transactions_entity_info() {
     'label'      => t('Transaction record'),
 
     // ControllerClass, an extension of the default drupal-controller.
-    'controller class'  => 'FratlerMoneyTransactionController',
+    'controller class'  => 'FratlerTransactionController',
 
     // Base-Table. This one's pretty self-explanatory, huh?
     'base table'    => 'fratler_transactions',
@@ -903,7 +923,7 @@ function fratler_transactions_entity_info() {
 
 
 /**
- * Implements hook_fm_transaction_dry_run()
+ * Implements hook_ft_transaction_dry_run()
  * Run a test on a given transaction. This function checks,
  * if the involved parties have all required permissions and 
  * if any of the set limits (overdraw, transaction volume etc.) are violated.
@@ -917,7 +937,7 @@ function fratler_transactions_entity_info() {
  * @return
  *   An array of error-messages with the error-code as key and the corresponding field as value (which can be recycled by form_set_error() etc.
  */
-function fratler_transactions_fm_transaction_dry_run($entity) {
+function fratler_transactions_ft_transaction_dry_run($entity) {
   global $user;
 
   // Before we start, check the integrity of the balances-db
@@ -990,12 +1010,12 @@ function fratler_transactions_fm_transaction_dry_run($entity) {
   // TODO: Implement the same for master-accounts as we're just doing the users here
   if ($entity->counter && $entity->sid > 0) {
     // Check if the sender is allowed to overdraw in general, in case the new balance is 0 > balance > limit
-    if ($sid->balance-$entity->amount < 0 && $sid->balance-$entity->amount > variable_get('fm_overdraw_limit')) {
+    if ($sid->balance-$entity->amount < 0 && $sid->balance-$entity->amount > variable_get('ft_overdraw_limit')) {
       if (!fratler_accounts_access(FAcPerm::OVERDRAW, $sid))
         $errors[$sid->aid == $user->uid ? FMErrors::OWN_OVERDRAW : FMErrors::SID_OVERDRAW] = 'amount';
     }
     // This is universal: check if the user has the permission to exceed the overdraw-limit
-    if ($sid->balance-$entity->amount < variable_get('fm_overdraw_limit')) {
+    if ($sid->balance-$entity->amount < variable_get('ft_overdraw_limit')) {
       if (!fratler_accounts_access(FAcPerm::EXCEED_OVERDRAW, $sid))
         $errors[$sid->aid == $user->uid ? FMErrors::OWN_OVERDRAW_EX : FMErrors::SID_OVERDRAW_EX] = 'amount';
     }
@@ -1004,12 +1024,12 @@ function fratler_transactions_fm_transaction_dry_run($entity) {
   // We're deducting -- this is to prevent deposits with the final balance still < overdraw_limit
   } else if (!$entity->counter && $entity->rid > 0 && $entity->amount < 0) {                  
     // Check if the user is allowed to overdraw in general, if the new balance is 0 > balance > limit
-    if ($rid->balance+$entity->amount < 0 && $rid->balance+$entity->amount > variable_get('fm_overdraw_limit')) {
+    if ($rid->balance+$entity->amount < 0 && $rid->balance+$entity->amount > variable_get('ft_overdraw_limit')) {
       if (!fratler_accounts_access(FAcPerm::OVERDRAW))
         $errors[FMErrors::OWN_OVERDRAW] = 'amount';
     }
     // This is universal: check if the user has permission to exceed the overdraw limit
-    if ($rid->balance+$entity->amount < variable_get('fm_overdraw_limit')) {
+    if ($rid->balance+$entity->amount < variable_get('ft_overdraw_limit')) {
       if (!fratler_accounts_access(FAcPerm::OVERDRAW))
         $errors[FMErrors::OWN_OVERDRAW_EX] = 'amount';
     }
@@ -1058,7 +1078,7 @@ class FMErrors {
  * @return
  *   The corresponding string passed through t().
  */
-function fm_get_error($error) {
+function ft_get_error($error) {
   switch ($error) {
     case FMErrors::RIDSID_IDENTICAL:  return t('Recipient and Sender must not be identical.');
     case FMErrors::PERM_TRANS_OWN:    return t('You are not allowed to transfer your own funds.');
@@ -1116,16 +1136,15 @@ function _fm_reassign_queue($acc_from, $acc_to) {
 
   // Since we get the counter-transactions inverted, we need to shift them back
   foreach ($transactions_to as $to) {
-    if ($to->amount < 0 && $to->sid != 0) {
-      $to->sid ^= $to->rid ^= $to->sid ^= $to->rid;
-    }
+    if ($to->amount < 0 && $to->sid != 0)
+      list($to->rid, $to->sid) = array($to->sid, $to->rid);
 
     $sigs_ok = $sigs_ok & $to->signature_ok;
   }
 
   foreach ($transactions_from as $from) {
     if ($from->amount < 0 && $from->sid <> 0) 
-      $from->sid ^= $from->rid ^= $from->sid ^= $from->rid;
+      list($from->rid, $from->sid) = array($from->sid, $from->rid);
 
     $sigs_ok = $sigs_ok & $from->signature_ok;
   }

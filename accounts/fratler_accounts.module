@@ -180,8 +180,32 @@ function fratler_accounts_access($context, $account = NULL, $object = NULL) {
   if (is_string($context))
     $context = constant($context);
   
-  // TODO fumble in Master Accounts...
-  // invoke hook_permission?
+  // TODO complete fumbling in Master Accounts...
+  if (module_exists('fratler_masters')) {
+    $action = NULL; 
+    $master = NULL;
+
+    // Check if the user can display a MA.
+    if (!empty($account) && $account->aid < 0) {
+      $master = fratler_masters_load($account->aid);
+      if ($context & FAcPerm::DISPLAY)
+        $action = 'display';
+    }
+    // Check if the user can access a MA-transaction
+    else if ($object) {
+      // Transfers
+      if ($object->sid < 0 && $object->rid <> 0)
+        $master = fratler_masters_load($object->sid);
+      // Adjustments
+      else if ($object->rid < 0 && $object->sid == 0)
+        $master = fratler_masters_load($object->rid);
+      $action = 'display';
+    }
+
+    // Only do stuff if we managed to scramble something together earlier
+    if ($action && $master)
+      return user_access(key(_fm_permission_render($master, $action)));
+  }
 
 
   // Scenario: Display account-overview (balances)
@@ -197,7 +221,6 @@ function fratler_accounts_access($context, $account = NULL, $object = NULL) {
     return false;
 
   // Check if the user is allowed to display stuff.
-  // Check if the user can view other accounts ... TODO MASTER!!!
   if ($context & FAcPerm::DISPLAY && !$account->is_own && !$object) {
     return $user_account->state & FAcPerm::DISPLAY_ALL;
   }
@@ -208,7 +231,7 @@ function fratler_accounts_access($context, $account = NULL, $object = NULL) {
   // All involved parties are allowed to see transaction-singlets.
   if ($context & FAcPerm::DISPLAY && $object) {
     // The user making a transaction always only gets to see the counter-transaction
-    if ($object->amount < 0 && $object->sid != 0)
+    if ($object->amount < 0 && $object->sid <> 0)
       return $object->sid == $account->aid;
     else
       return $object->rid == $account->aid || $object->iid == $account->aid;
@@ -219,7 +242,6 @@ function fratler_accounts_access($context, $account = NULL, $object = NULL) {
     else
       return $account->state & FAcPerm::ADJUST_OTHER;
   }
-
 
   // Fallback: check if the account is permitted to do $context
   return $account->state & $context;
@@ -378,9 +400,9 @@ function fratler_accounts_rebuild_permissions($process = false) {
 }
 
 /**
- * Handle the results of the batch-call during fratler_money_install()
+ * Handle the results of the batch-call during fratler_accounts_install()
  *
- * @see fratler_money_enable()
+ * @see fratler_accounts_enable()
  * @see batch_process()
  */
 function _fac_build_perm_done($success = false, $results = null, $operations = null) {
@@ -456,7 +478,7 @@ function fratler_accounts_overview($target = null) {
 
   // Grab all the accounts the user can see
   foreach (module_implements('fac_get_accounts') as $module) {
-    foreach (module_invoke($module, 'fac_get_accounts', $target) as $account) {
+    foreach (module_invoke($module, 'fac_get_accounts', $target, 'display') as $account) {
       // Index the array by name, prefix own account with !! and Master Accounts with ZZ to weigh them up/down.
       if ($account->aid == $user->uid)
         $accounts[strtolower('!! ' . $account->name)] = $account;
@@ -474,7 +496,7 @@ function fratler_accounts_overview($target = null) {
     foreach ($accounts as $account) {
       $rows[] = array(
         fratler_accounts_access(FAcPerm::DISPLAY, $account) ? l($account->name, 'fratler/account/' . $account->aid . '/statement') : $account->name,
-        _fac_format_amount($account->balance),
+        array('data' => _fac_format_amount($account->balance), 'class' => 'fm_numeric'),
         $account->tstamp ? (fratler_accounts_access(FAcPerm::DISPLAY, $account) ? l(format_date($account->tstamp, 'short'), 'fratler/transaction/' . $account->last_trans) : format_date($account->tstamp, 'short')) : t('-----'),
         $account->active ? '&#x2714' : '&#x2718',
         $account->blocked ? '&#x2714' : '&#x2718',
@@ -545,9 +567,6 @@ function fratler_accounts_guarddog_info() {
  * @param entity
  *   The fully-loaded entity object with a populated signature element.
  *
- * @param message
- *   Default: false. If message == true, fratler_money_hash_verify will issue a drupal_set_message informing the user about a mismatch.
- *
  * @return
  *   TRUE if the signature checks out, FALSE if not.
  *   In addition, a system (and optionally a user) message is fired.
@@ -562,7 +581,8 @@ function fratler_accounts_hash_verify($entity) {
 
   // If it's a counter-booking, swap rid/sid back
   if (isset($entity->sid) && $entity->sid != 0 && $entity->amount < 0)
-    $entity->rid ^= $entity->sid ^= $entity->rid ^= $entity->sid;
+    list($entity->rid, $entity->sid) = array($entity->sid, $entity->rid);
+  
 
   $verdict = _fac_generate_hash($entity, $stored) == $stored;
 
@@ -659,7 +679,7 @@ function _fac_generate_hash($entity, $setting) {
   $hash = hash('sha512', $salt . json_encode($data), true);
 
   do {
-    $hash = hash('sha256', $hash, true);
+    $hash = hash('sha384', $hash, true);
   } while (--$count);
 
   // In case $setting is an entire hash, just extract the first 12 bytes as setting-string
@@ -841,8 +861,8 @@ function fratler_accounts_user_insert(&$edit, $user, $category) {
   fratler_account_save($account);
 }
 /**
- * Same as fratler_money_user_insert(). Catch changes to the username and/or status and adapt the FMAc accordingly.
- * @see fratler_money_user_insert()
+ * Same as fratler_accounts_user_insert(). Catch changes to the username and/or status and adapt the FMAc accordingly.
+ * @see fratler_accounts_user_insert()
  */
 function fratler_accounts_user_update(&$edit, $user, $category) {
   $account = fratler_account_load($user->uid);
@@ -878,7 +898,7 @@ function fratler_accounts_user_delete($user) {
  *   The account-number.
  *
  * @param reset
- *   Whether to reset the fratler_money_load_multiple cache.
+ *   Whether to reset the fratler_account_load_multiple cache.
  *
  * @return
  *   A fully populated Account object or FALSE if nothing could be matched to $aid.
@@ -968,11 +988,17 @@ function fratler_accounts_entity_info() {
  *   The user to be checked (ID or object); if none given the current user is checked.
  *   If target 'all' is passed, this function will return all user-accounts (aid > 0).
  *
+ * @param type
+ *   The type of action we want to get the accounts for. Can be: 
+ *   'display'
+ *   'transfer'
+ *   'adjustment'
+ *
  * @return
- *   If the target is allowed to participate, an array with userID=>fratler_money_format_account().
+ *   If the target is allowed to participate, an array with accountID=>fratler_account_format_account().
  *   Otherwise an empty array is returned.
  */
-function fratler_accounts_fac_get_accounts($target = FALSE) {
+function fratler_accounts_fac_get_accounts($target = FALSE, $type = 'display') {
   global $user;
 
   $matches = array();
@@ -1122,7 +1148,7 @@ function _fac_cs_psfix($psfix, &$fmt = NULL) {
  * @param entity
  *   The transaction-entity of the transaction.
  */
-function fratler_accounts_fm_transaction_update($entity) {
+function fratler_accounts_ft_transaction_update($entity) {
   $account    = fratler_account_load($entity->rid);
   $account->balance   = $entity->balance;
   $account->tstamp   = $entity->tstamp;  
@@ -1170,22 +1196,38 @@ function _fac_autocomplete($string = '', $direction = 'rid', $type) {
     $query->entityCondition('entity_type', 'fratler_account')
       ->propertyCondition('name', '%' . $string . '%', 'LIKE')
       ->propertyCondition('blocked', 0)  // No matter what permissions, blocked means blocked.
+      ->propertyCondition('aid', '0', '>') // Master accounts will be dealt with separately.
+      ->propertyOrderBy('name')
       ->range(0, 10);
     if (!fratler_accounts_access(FAcPerm::IGNORE_BAR)) {
       $query->propertyCondition('active', 1);
-      if ($direction == 'rid')
-        $query->propertyCondition('state', FAcPerm::RECEIVE, '&');
     }
+    if ($direction == 'rid')
+      $query->propertyCondition('state', FAcPerm::RECEIVE, '&');
+
     $results = $query->execute();
 
     $candidates = fratler_account_load_multiple(array_keys($results['fratler_account']));
+    
+    if (!empty($candidates) && !empty($matches))
+      $matches["\0"] = '<hr noshade="noshade" />';
+
 
     foreach ($candidates as $candidate) {
-      $matches[$candidate->name] = $candidate->name;
-
-      // Attach a couple warning-messages to the display in case the accounts are blocked / inactive
       if (!$candidate->active)
-        $matches[$candidate->name] .= ' ' . t('(inactive)');
+        $matches[$candidate->name] = '<div class="fac_auto_inactive">';
+      else
+        $matches[$candidate->name] = '';
+
+      $matches[$candidate->name] .= '<span class=" ' . ($master->balance < 0 ? 'fac_debit' : '' ) . '">' . $candidate->name . '</span>';
+
+      // Attach the balances if the user has the right permissions
+      if (fratler_accounts_access(FAcPerm::DISPLAY_ACC | FAcPerm::DISPLAY_ALL))
+        $matches[$candidate->name] .= '<span class="fac_auto_balance">' . _fac_format_amount($candidate->balance) . '</span>';
+
+      if (!$candidate->active)
+        $matches[$candidate->name] .= '</div>';
+
     }
 
     drupal_json_output($matches);

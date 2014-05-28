@@ -6,12 +6,11 @@
  */
 
 /**
- * Page callback: fratler_money settings
+ * Page callback: fratler_accounts settings
  *
  * @see fratler_accounts_menu()
  */
 function fratler_accounts_admin($form, &$form_state) {
-  error_log("boo!!");
   // Initialize formatter-object
   $fmt  = _fac_nf_init();
 

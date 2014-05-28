@@ -53,3 +53,14 @@
 	}
 }
 
+/* Autocomplete-elements */
+.fac_auto_master {
+  font-style: italic;
+}
+.fac_auto_balance {
+  float: right;
+}
+
+.fac_auto_inactive {
+  text-decoration: line-through;
+}
