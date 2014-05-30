@@ -136,7 +136,7 @@ function fratler_masters_overview($account) {
   if ($acc_data->last_trans) 
     $rows['last_trans'] = array(
       'title'    => array('data' => t('Last transaction'), 'header' => true),
-      'content'  => array('data' => l(t('#@id (@date)', array('@date' => format_date($acc_data->tstamp, 'short'), '@id' => $acc_data->last_trans)), 'fratler/transaction/view/' . $acc_data->last_trans), 'colspan' => 2),
+      'content'  => array('data' => l(t('#@id (@date)', array('@date' => format_date($acc_data->tstamp, 'short'), '@id' => $acc_data->last_trans)), 'fratler/transaction/' . $acc_data->last_trans), 'colspan' => 2),
     );
   $rows['fingerprint'] = array(
     'title'    => array('data' => t('Fingerprint'), 'header' => true),
