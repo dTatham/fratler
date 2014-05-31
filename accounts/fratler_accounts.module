@@ -110,7 +110,7 @@ function _fac_permission_render($bitfield) {
   if ($bitfield & FAcPerm::IGNORE_BAR)
     $permissions['ignore account bar'] = array(
       'title'    => t('Bypass account-bar'),
-      'description'  => t('Users may conduct transactions with any account that aren\'t blocked by the syste (regardless of the account\'s permission).'),
+      'description'  => t("Users may conduct transactions with any account that isn't blocked by the system (regardless of the account's permission)."),
       'key'    => FAcPerm::IGNORE_BAR,
     );
   if ($bitfield & FAcPerm::EXCEED_TRANS)
@@ -263,17 +263,6 @@ function fratler_accounts_permission() {
  * Implements hook_menu()
  */
 function fratler_accounts_menu() {
-
-  // DEVEL SHIT
-  $items['fratler/dev'] = array(
-    'title'    => 'Permissions-Nukefield',
-    'page callback'  => '_fac_nuke',
-    'access callback' => true,
-    'weight'  => 100,
-    'file'    => 'fac_nukefield.inc',
-    'menu_name'  => 'user-menu',
-  );
-
   // Admin-Page
   // TODO Once the rest of the fratler_suite is online, make this more general
   $items['admin/config/fratler'] = array(
@@ -310,7 +299,6 @@ function fratler_accounts_menu() {
     'page arguments' => array(null),
     'access callback' => 'fratler_accounts_access',
     'access arguments' => array('FAcPerm::DISP_MENU'),
-    'type'    => MENU_NORMAL_ITEM,
     'menu_name'  => 'user-menu',
   );
   $items['fratler/account/overview'] = array(
@@ -969,7 +957,7 @@ function fratler_account_delete($account) {
  */
 function fratler_accounts_entity_info() {
   return array('fratler_account' => array(
-    'label'      => t('Fratler Money account'),
+    'label'      => t('Fratler Account'),
     'controller class'  => 'FratlerAccountController',
     'base table'    => 'fratler_accounts',
     'uri callback'    => 'fratler_account_uri',
