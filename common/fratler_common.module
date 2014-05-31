@@ -1,0 +1,50 @@
+<?php
+/**
+ * @file
+ * Utitlities and services for the fratler-Suite
+ * (c) 2012 Daniel Zauner
+ */
+
+/**
+ * Implements hook_menu()
+ */
+function fratler_common_menu() {
+	$itmes = array();
+
+	$items['admin/config/fratler'] = array( 
+		'title' 	=> 'Fratler Suite', 
+		'description' 	=> 'The fratler_suite.', 
+		'position' 	=> 'right', 
+		'page callback'	=> 'system_admin_menu_block_page', 
+		'access arguments' => array('access administration pages'), 
+		'file'		=> '../../../../../modules/system/system.admin.inc'
+	);
+	$items['admin/config/fratler/common'] = array(
+		'title'		=> 'Fratler Common',
+		'description'	=> 'Configure the fratler_suite common services',
+		'page callback'	=> 'drupal_get_form',
+		'page arguments' => array('fratler_common_admin_form'),
+		'access arguments' => array('access administration pages'),
+		'file'		=> 'fc_admin.inc',
+	);
+
+	return $items;
+}
+
+/**
+ * Implements hook_help
+ *
+ * Displays help and module information.
+ *
+ * @param path
+ * 	Which path of the site we're using to display help
+ * @param arg 
+ * 	Array that holds the current path as returned from arg() function
+ */
+function fratler_common_help($path, $arg) {
+	switch ($path) { 
+	case 'admin/help#fratler_common':
+		return '<p>' . t('Services and utilities for the fratler_suite') . '</p>';
+		break;
+	}
+}

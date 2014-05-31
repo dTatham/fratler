@@ -1,0 +1,26 @@
+<?php
+
+/**
+  * Implements hook_install()
+  */
+function fratler_common_install() {
+	if (variable_get('fc_key') != NULL)
+		return; // For now we will just recycle the already in place key
+
+	// Generate a new key-pair and store it
+	// TODO: Error-Handling!
+	$res = openssl_pkey_new();
+	$key = false;
+	openssl_pkey_export($res, $key);
+	variable_set('fc_key', $key);
+
+	$pubkey = openssl_pkey_get_details($res);
+	variable_set('fc_key_public', $pubkey["key"]);
+	
+}
+
+
+function fratler_common_uninstall() {
+	variable_del('fc_key');
+	variable_del('fc_key_public');
+}
