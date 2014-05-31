@@ -28,7 +28,7 @@ function fratler_masters_permission() {
 function fratler_masters_menu() {
   return array(
     'admin/config/fratler/master' => array(
-      'title'    => 'Fratler Master',
+      'title'    => 'Fratler Masters',
       'description'  => 'Configure Master Accounts for fratler_suite.',
       'page callback'  => 'drupal_get_form',
       'page arguments' => array('fratler_masters_admin'),

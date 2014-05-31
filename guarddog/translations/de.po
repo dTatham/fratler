@@ -1,0 +1,165 @@
+# $Id$
+#
+# German translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  fratler_guarddog.module: n/a
+#  fratler_guarddog.info: n/a
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2014-05-31 03:29+0100\n"
+"PO-Revision-Date: 2014-05-31 15:12+0200\n"
+"Last-Translator: Daniel aka Mushu <delta@fratler.de>\n"
+"Language-Team: German <EMAIL@ADDRESS>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Pootle 2.5.1.1\n"
+"X-POOTLE-MTIME: 1401545528.000000\n"
+
+#: fratler_guarddog.module:23
+msgid "View Guarddog Issues"
+msgstr "Guarddog-Vorfälle anzeigen"
+
+#: fratler_guarddog.module:68
+msgid "Gini marked issue #@issue as solved. Woof!"
+msgstr "Gini hat Vorfall #@issue as gelöst markiert. Wuff!"
+
+#: fratler_guarddog.module:91;199
+msgid "Severity"
+msgstr "Schweregrad"
+
+#: fratler_guarddog.module:94;203
+msgid "Solved"
+msgstr "Gelöst"
+
+#: fratler_guarddog.module:97;225
+msgid "Last occurrence"
+msgstr "Letzter Vorfall"
+
+#: fratler_guarddog.module:100
+msgid "Total"
+msgstr "Gesamt"
+
+#: fratler_guarddog.module:103;213
+msgid "Module"
+msgstr "Modul"
+
+#: fratler_guarddog.module:106;241
+msgid "Message"
+msgstr "Nachricht"
+
+#: fratler_guarddog.module:109;233
+msgid "User"
+msgstr "Benutzer"
+
+#: fratler_guarddog.module:127
+msgid "First occurrence: @date"
+msgstr "Erster Vorfall: @date"
+
+#: fratler_guarddog.module:129
+msgid "Type: @type"
+msgstr "Typ: @type"
+
+#: fratler_guarddog.module:143;257
+msgid "No data available."
+msgstr "Keine Daten verfügbar."
+
+#: fratler_guarddog.module:162
+msgid "Fratler Guarddog - Issue #@id: @name"
+msgstr "Fratler Guarddog – Vorfall #@id: @name"
+
+#: fratler_guarddog.module:190
+msgid "Solve issue"
+msgstr "Vorfall lösen"
+
+#: fratler_guarddog.module:195
+msgid "Issue #"
+msgstr "Vorfall #"
+
+#: fratler_guarddog.module:207
+msgid "Watchdog-Entry?"
+msgstr "Watchdog-Meldung?"
+
+#: fratler_guarddog.module:210
+msgid "(first occurrence only)"
+msgstr "(nur der erste Vorfall)"
+
+#: fratler_guarddog.module:217
+msgid "Type"
+msgstr "Typ"
+
+#: fratler_guarddog.module:221
+msgid "First occurrence"
+msgstr "Erster Vorfall"
+
+#: fratler_guarddog.module:229
+msgid "Total occurrences"
+msgstr "Vorfälle (gesamt)"
+
+#: fratler_guarddog.module:237
+msgid "Hostname"
+msgstr "Hostname"
+
+#: fratler_guarddog.module:245
+msgid "Operations"
+msgstr "Operationen"
+
+#: fratler_guarddog.module:269
+msgid "Fratler Guarddog Issue Type"
+msgstr "Fratler Guarddog-Vorfallstyp"
+
+#: fratler_guarddog.module:279;41
+msgid "Fratler Guarddog Issue"
+msgstr "Fratler Guarddog Vorfall"
+
+#: fratler_guarddog.module:361
+msgid "Gini registered the issue-type %name for module %module."
+msgstr "Gini hat den Vorfallstyp %name für das Modul %module registriert."
+
+#: fratler_guarddog.module:364
+msgid "Gini updated the issue-type %name for module %module."
+msgstr "Gini hat den Vorfallstyp %name für das Modul %module aktualisiert."
+
+#: fratler_guarddog.module:608
+msgid "Conslut Gini"
+msgstr "Gini konsultieren"
+
+#: fratler_guarddog.module:434
+msgid "Gini the magnificent guarddog fetched and deleted one issue type for %module."
+msgid_plural "Gini the magnificent guarddog fetched and deleted @count issue types for %module."
+msgstr[0] ""
+"Gini, der bezaubernde Wachhund, hat einen Vorfallstyp für %module "
+"apportiert und gelöscht."
+msgstr[1] ""
+"Gini, der bezauberne Wachhund, hat @count Vorfallstypen für $module "
+"apportiert und gelöscht."
+
+#: fratler_guarddog.module:35
+msgid "Fratler Guarddog Issues"
+msgstr "Fratler Guarddog Vorfälle"
+
+#: fratler_guarddog.module:36
+#, fuzzy
+msgid "Access reports and see what Gini has been up to."
+msgstr "Vorfälle anzeigen und Gini einen Besuch abstatten."
+
+#: fratler_guarddog.module:49
+msgid "Solve Issue"
+msgstr "Vorfall lösen"
+
+#: fratler_guarddog.info:0
+msgid "Fratler Guarddog"
+msgstr "Fratler Guarddog"
+
+#: fratler_guarddog.info:0
+msgid "Guarddog for the Fratler Suite - you may call her Gini."
+msgstr "Wachhund für die fratler_suite. Du kannst Gini zu ihr sagen."
+
+#: fratler_guarddog.info:0
+msgid "fratler_suite"
+msgstr "fratler_suite"

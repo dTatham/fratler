@@ -72,13 +72,13 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
         '#options'  => $sids,
         '#required'  => true,
         '#default_value' => isset($sids[format_username($user)]) ? format_username($user) : 0,  
-        '#empty_option' => ' - ' . t('Select Account') . ' - ',
+        '#empty_option' => t('- Select Account -'),
         '#empty_value'  => 0,
       );
 
     $form['rid'] = array(
       '#type'    => 'textfield',
-      '#title'  => $entity->counter ? t('Recipient') : t('Account'),
+      '#title'  => $entity->counter ? t('Recipient') : t('Account', array(), array('context' => 'accounting')),
       '#required'  => true,
       '#default_value' => ($entity->tid <> 0) ? fratler_account_load($entity->rid)->name : (!$entity->counter && !fratler_accounts_access(FAcPerm::ADJUST_OTHER) ? $sids[$user->uid]->name : ''),  // TODO: finalize this one once dev is complete
       '#disabled'  => (!$entity->counter && !fratler_accounts_access(FAcPerm::ADJUST_OTHER)) ? true : false,
@@ -109,7 +109,7 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
       '#required'  => true,
       '#options'  => _fm_map_ttypes(variable_get('ft_vocab_' . $type)),
       '#default_value' => ($entity->ttype <> 0) ? $entity->ttype : ($type == 'transfer') ? variable_get('ft_vocab_transfer_term') : null,
-      '#empty_option'  => ' - ' . t(taxonomy_term_load(variable_get('ft_vocab_' . $type))->name) . ' - ',
+      '#empty_option'  => t('- @empty_option -', array('@empty_option' => taxonomy_term_load(variable_get('ft_vocab_' . $type))->name)),
     );
 
     $form['fratler_transaction'] = array(  // Entity-Container - no touching!

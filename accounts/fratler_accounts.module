@@ -496,7 +496,7 @@ function fratler_accounts_overview($target = null) {
 
   $build = array(
     '#theme'  => 'table',
-    '#header'  => array(t('Account'), t('Balance'), t('Last transaction'), t('Active'), t('Blocked'), array('data' => t('Fingerprint'), 'colspan' => 2)),
+    '#header'  => array(t('Account', array(), array('context' => 'accounting')), t('Balance'), t('Last transaction'), t('Active'), t('Blocked'), array('data' => t('Fingerprint'), 'colspan' => 2)),
     '#rows'    => $rows,
     '#sticky'  => true,
     '#empty'  => t('No accounts available.'),
@@ -581,8 +581,7 @@ function fratler_accounts_hash_verify($entity) {
         'fa_sig_mismatch', 
         array('%user' => check_plain($entity->name), '@aid' => check_plain($entity->aid)));
 
-      drupal_set_message(t('An error occured while verifying the signature of the account !name; ' . 
-        'please contact an admin immediately.', 
+      drupal_set_message(t('An error occured while verifying the signature of the account !name; please contact an admin immediately.', 
         array('!name' => l(check_plain($entity->name), 'fratler/account/'.check_plain($entity->aid) . '/statement'))), 'error', false);
 
       // Reset the FMAc signatures for the involved parties to prevent them from making a mess
@@ -596,9 +595,7 @@ function fratler_accounts_hash_verify($entity) {
       fratler_guarddog_issue('fratler_accounts', 
         'ft_sig_mismatch', 
         array(':tid' => $entity->tid));
-      drupal_set_message(t('An error occured while verifying the signature for transaction #!tid. ' . 
-        'Involved accounts were locked to avoid further corruption. ' .
-        'Please contact an admin immediately.', 
+      drupal_set_message(t('An error occured while verifying the signature for transaction #!tid. Involved accounts were locked to avoid further corruption. Please contact an admin immediately.', 
         array('!tid' => l(check_plain($entity->tid), 'fratler/transaction/'.check_plain($entity->tid)))), 'error', false);
 
       // Reset the FMAc signatures for the involved parties to prevent them from making a mess

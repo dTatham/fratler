@@ -1,5 +1,5 @@
 name = Fratler Masters
-description = Master Accounts for Fratler Money
+description = Fratler Accounts that are not tied to a given user.
 core = 7.x
 package = fratler_suite
 #dependencies = <somemod>

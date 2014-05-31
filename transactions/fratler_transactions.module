@@ -349,7 +349,7 @@ function fm_transaction_filter_form($form, &$form_state) {
   );
   $form['filters']['cont_acc']['acc_sel'] = array(
     '#type'    => 'select',
-    '#options'  => array('sid' => t('Sender'), 'rid' => t('Account')),
+    '#options'  => array('sid' => t('Sender'), 'rid' => t('Account', array(), array('context' => 'accounting'))),
     '#field_prefix'  => '<div class="fm_filter_label">',
     '#empty_value'  => 'all',
     '#empty_option'  => t('any'),

@@ -1,0 +1,311 @@
+# $Id$
+#
+# German translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  fma_admin.inc: n/a
+#  fratler_masters.module: n/a
+#  fratler_masters.install: n/a
+#  fratler_masters.info: n/a
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2014-05-31 03:30+0100\n"
+"PO-Revision-Date: 2014-05-31 03:30+0100\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: German <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+#: fma_admin.inc:29;77 fratler_masters.module:104
+msgid "Name"
+msgstr "Name"
+
+#: fma_admin.inc:30 fratler_masters.module:116
+msgid "Active"
+msgstr "Aktiv"
+
+#: fma_admin.inc:31;98 fratler_masters.module:112
+msgid "Description"
+msgstr "Beschreibung"
+
+#: fma_admin.inc:32
+msgid "Operations"
+msgstr "Operationen"
+
+#: fma_admin.inc:48
+msgid "!view !statement !edit !toggle !permissions"
+msgstr "!view !statement !edit !toggle !permissions"
+
+#: fma_admin.inc:49
+msgid "view"
+msgstr "Ansicht"
+
+#: fma_admin.inc:50
+msgid "statement"
+msgstr "Kontoauszug"
+
+#: fma_admin.inc:51
+msgid "edit"
+msgstr "Bearbeiten"
+
+#: fma_admin.inc:52
+msgid "toggle"
+msgstr "Aktivieren/Deaktivieren"
+
+#: fma_admin.inc:53
+msgid "permissions"
+msgstr "Berechtigungen"
+
+#: fma_admin.inc:63
+msgid "No Master Accounts available."
+msgstr "Keine Masterkonten verfügbar."
+
+#: fma_admin.inc:92
+msgid "Active?"
+msgstr "Aktiv?"
+
+#: fma_admin.inc:93
+msgid "Choose whether this Master Account is to be active or inactive."
+msgstr "Das Masterkonto aktiv oder inaktiv schalten."
+
+#: fma_admin.inc:99
+msgid "Please give a short description of the Master Account."
+msgstr "Eine kurze Beschreibung des Masterkontos."
+
+#: fma_admin.inc:106
+msgid "Save"
+msgstr "Speichern"
+
+#: fma_admin.inc:111
+msgid "Delete"
+msgstr "Löschen"
+
+#: fma_admin.inc:114;237
+msgid "Cancel"
+msgstr "Abbrechen"
+
+#: fma_admin.inc:137
+msgid "This Master Account already exists. If you want to edit it, please click !here."
+msgstr "Dieses Masterkonto existiert bereits. Zum Ändern !here klicken."
+
+#: fma_admin.inc:138
+msgid "here"
+msgstr "hier"
+
+#: fma_admin.inc:155
+msgid "Delete Master Account @name"
+msgstr "Masterkonto @name löschen"
+
+#: fma_admin.inc:191
+msgid "Confirm deletion"
+msgstr "Löschen bestätigen"
+
+#: fma_admin.inc:192
+msgid "Please confirm you want to delete this Master Account. <b>This action cannot be undone.</b>"
+msgstr ""
+"Bitte bestätige, dass dieses Masterkonto gelöscht werden soll. "
+"<b>Dieser Vorgang kann nicht rückgängig gemacht werden.</b>"
+
+#: fma_admin.inc:199
+msgid "Alternative Master Account"
+msgstr "Alternatives Masterkonto"
+
+#: fma_admin.inc:208;217
+msgid "I know what I am doing"
+msgstr "Ich weiß was ich tue"
+
+#: fma_admin.inc:234
+msgid "Confirm"
+msgstr "Bestätigen"
+
+#: fma_admin.inc:244
+msgid "Please confirm that you know what you are doing."
+msgstr "Bitte bestätige, dass du weißt, was du tust."
+
+#: fma_admin.inc:256
+msgid "Operation could not be completed."
+msgstr "Vorgang konnte nicht abgeschlossen werden."
+
+#: fma_admin.inc:176
+msgid "No alternative Master Accounts available. You need another active account that can take over the existing transaction."
+msgid_plural "No alternative Master Accounts available. You need another active account that can take over the existing @count transactions."
+msgstr[0] ""
+"Es ist kein alternatives Masterkonto verfügbar. Ein alternatives "
+"Masterkonto wird benötigt, um die bestehende Transaktion übernehmen "
+"zu können."
+msgstr[1] ""
+"Es ist kein alternatives Masterkonto verfügbar. Ein alternatives "
+"Masterkonto wird benötigt, um die bestehenden @count Transaktionen "
+"übernehmen zu können."
+
+#: fma_admin.inc:200
+msgid "There is currently <b>one</b> transaction on this Master Account. Please select an alternate Master Account which will hold the transaction."
+msgid_plural "There are currently <b>@count</b> transactions on this Master Account. Please select an alternate Master Account which will hold the transactions."
+msgstr[0] ""
+"Mit diesem Masterkonto ist derzeit <b>eine</b> Transaktion verknüpft. "
+"Bitte ein alternatives Masterkonto angeben, dass die Transaktion "
+"übernehmen kann."
+msgstr[1] ""
+"Mit diesem Masterkonto sind derzeit <b>@count</b> Transaktionen "
+"verknüpft. Bitte ein alternatives Masterkonto angeben, dass die "
+"Transaktionen übernehmen kann."
+
+#: fratler_masters.module:16
+msgid "Bypass inactive Master Accounts"
+msgstr "Inaktive Masterkonten umgehen"
+
+#: fratler_masters.module:17
+msgid "Ignore the active/inactive state of any Master Account."
+msgstr "Der aktiv/inaktiv Status eines Masterkontos kann umgangen werden"
+
+#: fratler_masters.module:92
+msgid "Master Account @name"
+msgstr "Masterkonto @name"
+
+#: fratler_masters.module:100
+msgid "Account ID"
+msgstr "Konto-ID"
+
+#: fratler_masters.module:108
+msgid "Machine name"
+msgstr "Maschinenlesbarer Name"
+
+#: fratler_masters.module:120
+msgid "Adjustment roles"
+msgstr ""
+
+#: fratler_masters.module:120
+msgid "Roles permitted to adjust the account."
+msgstr ""
+
+#: fratler_masters.module:124
+msgid "Transfer roles"
+msgstr ""
+
+#: fratler_masters.module:124
+msgid "Roles permitted to transfer from the account."
+msgstr ""
+
+#: fratler_masters.module:128
+msgid "Balance"
+msgstr "Kontostand"
+
+#: fratler_masters.module:132
+msgid "Total transactions"
+msgstr ""
+
+#: fratler_masters.module:138
+msgid "Last transaction"
+msgstr "Letzte Transaktion"
+
+#: fratler_masters.module:139
+msgid "#@id (@date)"
+msgstr ""
+
+#: fratler_masters.module:142
+msgid "Fingerprint"
+msgstr "Fingerabdruck"
+
+#: fratler_masters.module:153
+msgid "No data available."
+msgstr "Keine Daten verfügbar."
+
+#: fratler_masters.module:202
+msgid "%acc_name: Display Master Account statement"
+msgstr ""
+
+#: fratler_masters.module:206
+msgid "%acc_name: Adjust Master Account"
+msgstr ""
+
+#: fratler_masters.module:210
+msgid "%acc_name: Transfer funds"
+msgstr ""
+
+#: fratler_masters.module:222
+msgid "Fratler Master Account"
+msgstr ""
+
+#: fratler_masters.module:370
+msgid "Created Master Account %master."
+msgstr ""
+
+#: fratler_masters.module:378
+msgid "Updated Master Account %master."
+msgstr ""
+
+#: fratler_masters.module:428
+msgid "Could not reassign transactions from @entity."
+msgstr ""
+
+#: fratler_masters.module:592
+msgid "Master Accounts:"
+msgstr ""
+
+#: fratler_masters.module:452
+msgid "Deleted Master Account %master."
+msgid_plural "Deleted @count Master Accounts."
+msgstr[0] ""
+msgstr[1] ""
+
+#: fratler_masters.module:31
+msgid "Fratler Master"
+msgstr ""
+
+#: fratler_masters.module:32
+msgid "Configure Master Accounts for fratler_suite."
+msgstr ""
+
+#: fratler_masters.module:39
+msgid "Create Master Account"
+msgstr ""
+
+#: fratler_masters.module:40
+msgid "Create a new Master Account"
+msgstr ""
+
+#: fratler_masters.module:48
+msgid "Master Account"
+msgstr ""
+
+#: fratler_masters.module:49
+msgid "Display Master Account data."
+msgstr ""
+
+#: fratler_masters.module:56;57
+msgid "Edit Master Account"
+msgstr ""
+
+#: fratler_masters.module:65;66;74;75
+msgid "Delete Master Account"
+msgstr ""
+
+#: fratler_masters.install:60
+msgid "Updated one Master Account record."
+msgid_plural "Updated @count Master Account records."
+msgstr[0] ""
+msgstr[1] ""
+
+#: fratler_masters.install:73
+msgid "Deactivated one Master Account."
+msgid_plural "Deactivated @count Master Accounts."
+msgstr[0] ""
+msgstr[1] ""
+
+#: fratler_masters.info:0
+msgid "Fratler Masters"
+msgstr ""
+
+#: fratler_masters.info:0
+msgid "Master Accounts for Fratler Money"
+msgstr ""
+
+#: fratler_masters.info:0
+msgid "fratler_suite"
+msgstr "fratler_suite"
+

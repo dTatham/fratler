@@ -36,9 +36,7 @@ function fratler_transactions_admin($form, &$form_state) {
         $form['transfer']['ft_overdraw_limit'] = array(
     '#type'    => 'textfield',
     '#title'  => t('Overdraw limit'),
-    '#description'  => t('The amount a normal user may overdraw its amount by.<br />' .
-          'Enter a positive value to keep a "safety-deposit".<br />' .
-          'NOTE: If you enter a positive value, the permission @permission loses it\'s effect.', array('@permission' => 'Overdraw own account')),
+    '#description'  => t('The amount a normal user may overdraw its amount by.<br />Enter a positive value to keep a "safety-deposit".<br />NOTE: If you enter a positive value, the permission @permission loses it\'s effect.', array('@permission' => 'Overdraw own account')),
     '#default_value' => _fac_format_number(variable_get('ft_overdraw_limit')),
     '#size'    => 8,
     '#field_prefix'  => _fac_cs_psfix(true, $fmt),

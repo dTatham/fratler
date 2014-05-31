@@ -1,0 +1,384 @@
+# $Id$
+#
+# German translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  fratler_transactions.module: n/a
+#  fratler_transactions.info: n/a
+#  fratler_transactions.install: n/a
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2014-05-31 15:37+0100\n"
+"PO-Revision-Date: 2014-05-31 15:37+0100\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: German <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+#: fratler_transactions.module:179
+msgid "My account statement"
+msgstr ""
+
+#: fratler_transactions.module:179
+msgid "@name's account statement"
+msgstr ""
+
+#: fratler_transactions.module:223;459
+msgid "No transactions available."
+msgstr ""
+
+#: fratler_transactions.module:257
+msgid "Switch accounts"
+msgstr ""
+
+#: fratler_transactions.module:265
+msgid "Switch to:"
+msgstr ""
+
+#: fratler_transactions.module:283
+msgid "Go"
+msgstr ""
+
+#: fratler_transactions.module:300
+msgid "Invalid account name."
+msgstr ""
+
+#: fratler_transactions.module:319
+msgid "Filter transactions"
+msgstr ""
+
+#: fratler_transactions.module:326
+msgid "By timestamp"
+msgstr ""
+
+#: fratler_transactions.module:332;404;407
+msgid "From:"
+msgstr ""
+
+#: fratler_transactions.module:339;415
+msgid "To:"
+msgstr ""
+
+#: fratler_transactions.module:346
+msgid "By account"
+msgstr ""
+
+#: fratler_transactions.module:352;578
+msgid "Sender"
+msgstr ""
+
+#: fratler_transactions.module:352
+msgctxt "accounting"
+msgid "Account"
+msgstr "Benutzerkonto"
+
+#: fratler_transactions.module:584
+msgid "Account"
+msgstr "Benutzerkonto"
+
+#: fratler_transactions.module:355
+msgid "any"
+msgstr "beliebig"
+
+#: fratler_transactions.module:366
+msgid "By type"
+msgstr ""
+
+#: fratler_transactions.module:381
+msgid "Select type(s)"
+msgstr ""
+
+#: fratler_transactions.module:388
+msgid "By memo"
+msgstr ""
+
+#: fratler_transactions.module:398
+msgid "By amount"
+msgstr ""
+
+#: fratler_transactions.module:424
+msgid "Filter"
+msgstr "Filter"
+
+#: fratler_transactions.module:428
+msgid "Reset"
+msgstr "Zurücksetzen"
+
+#: fratler_transactions.module:443
+msgid "Transaction #@tid"
+msgstr ""
+
+#: fratler_transactions.module:493;522
+msgid "-----"
+msgstr "-----"
+
+#: fratler_transactions.module:510
+msgid "By: @user"
+msgstr ""
+
+#: fratler_transactions.module:535;540
+msgid "Fingerprint valid"
+msgstr ""
+
+#: fratler_transactions.module:535;540
+msgid "Fingerprint invalid!"
+msgstr ""
+
+#: fratler_transactions.module:563
+msgid "#"
+msgstr ""
+
+#: fratler_transactions.module:564
+msgid "Transaction-ID"
+msgstr ""
+
+#: fratler_transactions.module:571
+msgid "Timestamp"
+msgstr "Zeitstempel"
+
+#: fratler_transactions.module:590
+msgid "Type"
+msgstr "Typ"
+
+#: fratler_transactions.module:596
+msgid "Transaction-Memo"
+msgstr ""
+
+#: fratler_transactions.module:603
+msgid "Amount"
+msgstr ""
+
+#: fratler_transactions.module:610
+msgid "New balance:<br/>Sender"
+msgstr ""
+
+#: fratler_transactions.module:610;618
+msgid "New balance"
+msgstr ""
+
+#: fratler_transactions.module:618
+msgid "New balance:<br/>Account"
+msgstr ""
+
+#: fratler_transactions.module:626
+msgid "Fingerprint"
+msgstr "Fingerabdruck"
+
+#: fratler_transactions.module:893
+msgid "Transaction record"
+msgstr ""
+
+#: fratler_transactions.module:1083
+msgid "Recipient and Sender must not be identical."
+msgstr ""
+
+#: fratler_transactions.module:1084
+msgid "You are not allowed to transfer your own funds."
+msgstr ""
+
+#: fratler_transactions.module:1085
+msgid "You are not allowed to transfer others' funds."
+msgstr ""
+
+#: fratler_transactions.module:1086
+msgid "You are not allowed to participate in transactions."
+msgstr ""
+
+#: fratler_transactions.module:1087
+msgid "This account is not allowed to participate in transactions."
+msgstr ""
+
+#: fratler_transactions.module:1088
+msgid "You are not allowed to adjust your own account."
+msgstr ""
+
+#: fratler_transactions.module:1089
+msgid "You are not allowed to adjust other accounts."
+msgstr ""
+
+#: fratler_transactions.module:1091
+msgid "Amount invalid."
+msgstr ""
+
+#: fratler_transactions.module:1092
+msgid "Amount exceeds maximum transaction value."
+msgstr ""
+
+#: fratler_transactions.module:1094
+msgid "This transaction will overdraw the sender's account."
+msgstr ""
+
+#: fratler_transactions.module:1095
+msgid "This transaction will exceed the sender's overdraw-limit."
+msgstr ""
+
+#: fratler_transactions.module:1096
+msgid "This transaction will overdraw the account."
+msgstr ""
+
+#: fratler_transactions.module:1097
+msgid "This transaction will exceed the account's overdraw-limit."
+msgstr ""
+
+#: fratler_transactions.module:1098
+msgid "This transaction will overdraw your account."
+msgstr ""
+
+#: fratler_transactions.module:1099
+msgid "This transaction will exceed your overdraw-limit."
+msgstr ""
+
+#: fratler_transactions.module:1101
+msgid "The transaction-type is invalid."
+msgstr ""
+
+#: fratler_transactions.module:1105
+msgid "An unknown error occured. Your transaction could not be completed."
+msgstr ""
+
+#: fratler_transactions.module:1119
+msgid "Rebooking account %from to %to"
+msgstr ""
+
+#: fratler_transactions.module:1204
+msgid "Well... this is embarassing. Could not finish the job. Ask your admin for help. Sorry!"
+msgstr ""
+
+#: fratler_transactions.module:1263
+msgid "[%old &#8594; %new on @date by @user]"
+msgstr ""
+
+#: fratler_transactions.module:1239
+msgid "Rebooked one transaction from %old to %new."
+msgid_plural "Rebooked @count transactions from %old to %new."
+msgstr[0] ""
+msgstr[1] ""
+
+#: fratler_transactions.module:29 fratler_transactions.info:0
+msgid "Fratler Transactions"
+msgstr ""
+
+#: fratler_transactions.module:30
+msgid "Configure the transaction entity of the fratler_suite"
+msgstr ""
+
+#: fratler_transactions.module:38
+msgid "New transfer"
+msgstr ""
+
+#: fratler_transactions.module:39
+msgid "Make a new transaction"
+msgstr ""
+
+#: fratler_transactions.module:52
+msgid "Adjust account"
+msgstr ""
+
+#: fratler_transactions.module:53
+msgid "Adjust an account"
+msgstr ""
+
+#: fratler_transactions.module:68
+msgid "View transaction"
+msgstr ""
+
+#: fratler_transactions.module:69
+msgid "Display a single transaction"
+msgstr ""
+
+#: fratler_transactions.module:81
+msgid "All transactions"
+msgstr ""
+
+#: fratler_transactions.module:82
+msgid "Display all transactions"
+msgstr "Alle Transaktionen anzeigen"
+
+#: fratler_transactions.module:93;107
+msgid "Statement"
+msgstr ""
+
+#: fratler_transactions.module:94;108
+msgid "View your account statement"
+msgstr ""
+
+#: fratler_transactions.module:119;120
+msgid "Account statement"
+msgstr ""
+
+#: fratler_transactions.install:82
+msgid "Transaction-Types"
+msgstr ""
+
+#: fratler_transactions.install:83
+msgid "Fratler Money Transaction-Types. DO NOT REMOVE THIS VOCABULARY. I'm serious!"
+msgstr ""
+
+#: fratler_transactions.install:93
+msgid "Transfers"
+msgstr ""
+
+#: fratler_transactions.install:94
+msgid "Transfer transaction types"
+msgstr ""
+
+#: fratler_transactions.install:103
+msgctxt "Abbreviation for Standard Transfer"
+msgid "T"
+msgstr ""
+
+#: fratler_transactions.install:104
+msgid "Standard Transfer"
+msgstr ""
+
+#: fratler_transactions.install:113
+msgid "Adjustments"
+msgstr ""
+
+#: fratler_transactions.install:114
+msgid "Adjustment transaction types"
+msgstr ""
+
+#: fratler_transactions.install:123
+msgctxt "Abbreviation for Withdrawal"
+msgid "W"
+msgstr ""
+
+#: fratler_transactions.install:124
+msgid "Withdrawal"
+msgstr ""
+
+#: fratler_transactions.install:133
+msgctxt "Abbreviation for Deposit"
+msgid "D"
+msgstr ""
+
+#: fratler_transactions.install:134
+msgid "Deposit"
+msgstr ""
+
+#: fratler_transactions.install:145
+msgid "Please remember seting the !permissions and !rebuild the Fratler Account table afterwards to enable Fratler Accounts. You can also find the link in the !admin configuration."
+msgstr ""
+
+#: fratler_transactions.install:146
+msgid "permissions"
+msgstr "Berechtigungen"
+
+#: fratler_transactions.install:147
+msgid "rebuild"
+msgstr "aktualisieren"
+
+#: fratler_transactions.info:0
+msgid "Transaction functionality for Fratler Accounts"
+msgstr ""
+
+#: fratler_transactions.info:0
+msgid "fratler_suite"
+msgstr "fratler_suite"
+
