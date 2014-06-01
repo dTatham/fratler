@@ -416,8 +416,10 @@ function _fac_build_perm_init(&$context) {
  */
 function _fac_build_perm_process($user, $balance, &$context) {
   $account = fratler_account_load($user->uid);
-  if (!$account) 
+  if (!$account) {
     $account = entity_get_controller('fratler_account')->create($user->uid);
+    $account->signature_ok = TRUE;
+  }
 
   $account->active = $user->status;
   $account->state  = _fac_permission_calculate($user);
@@ -426,6 +428,7 @@ function _fac_build_perm_process($user, $balance, &$context) {
     $account->balance = $balance->balance;
     $account->tstamp = $balance->tstamp;
     $account->last_trans = $balance->tid;
+    $account->signature_ok = $account->signature_ok && $balance->signature_ok;
   }
   $state = fratler_account_save($account);
   $context['message'] = t('Processing @account.', array('@account' => $account->name));
@@ -582,7 +585,7 @@ function fratler_accounts_hash_verify($entity) {
         array('%user' => check_plain($entity->name), '@aid' => check_plain($entity->aid)));
 
       drupal_set_message(t('An error occured while verifying the signature of the account !name; please contact an admin immediately.', 
-        array('!name' => l(check_plain($entity->name), 'fratler/account/'.check_plain($entity->aid) . '/statement'))), 'error', false);
+        array('!name' => l(check_plain($entity->name), 'fratler/account/'.check_plain($entity->aid)))), 'error', false);
 
       // Reset the FMAc signatures for the involved parties to prevent them from making a mess
       db_query('UPDATE {fratler_accounts} SET blocked = 1, signature = NULL WHERE aid IN (:aids)', array(':aids' => array(check_plain($entity->aid))));
@@ -641,7 +644,7 @@ function _fac_generate_hash($entity, $setting) {
   $count = 1 << $count_log2;
 
   // Kill the stuff that can't be used for hashing
-  unset($entity->signature, $entity->is_own, $entity->signature_ok, $entity->counter, $entity->balance_sid, $entity->balance_rid, $entity->sid_name, $entity->rid_name, $entity->ttype_name);
+  unset($entity->signature, $entity->rdf_mapping, $entity->is_own, $entity->signature_ok, $entity->counter, $entity->balance_sid, $entity->balance_rid, $entity->sid_name, $entity->rid_name, $entity->ttype_name);
 
 
   // Do the hashy
@@ -867,7 +870,6 @@ function fratler_accounts_user_delete($user) {
   $account = fratler_account_load($user->uid);
   if ($account) {
     if ($account->last_trans == 0) {
-      debug('Deleting FMAc.');
       fratler_account_delete($account);
     } else {
       $account->active = 0;

@@ -69,9 +69,6 @@ function fratler_masters_admin($form, &$form_state) {
  * Page callback to display Master Account edit/create form
  */
 function fratler_masters_admin_edit($form, &$form_state, $account) {
-  // Sine we're creating a new Master Account, we can green light it:
-  $account->signature_ok = TRUE;
-
   $form['fma_name'] = array(
     '#type'    => 'textfield',
     '#title'  => t('Name'),
@@ -145,6 +142,10 @@ function fratler_masters_admin_edit_submit($form, &$form_state) {
   $raw->active   = check_plain($form_state['values']['active']);
   $raw->description = filter_xss($form_state['values']['description'], array('em', 'strong','cite','b','i','u'));
   $raw->mach_name  = check_plain($form_state['values']['mach_name']);
+
+  // Sine we're creating a new Master Account, we can green light it:
+  if ($raw->mid == 0)
+    $raw->signature_ok = TRUE;
 
   $master = fratler_masters_save($raw);
 

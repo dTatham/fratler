@@ -203,10 +203,10 @@ function fratler_transaction_statement($target = null) {
   $query->limit(variable_get('fm_pager'));
 
   // We're only interested in aids
-  $result = $query->execute()->fetchCol();
+  $result = $query->execute();
 
   if ($result) {
-    $transactions = fratler_transaction_load_multiple($result);
+    $transactions = fratler_transaction_load_multiple($result->fetchCol());
 
     foreach ($transactions as $transaction) {
       if ($target == 'all') 

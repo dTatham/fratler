@@ -400,7 +400,6 @@ class FratlerMasterController
      *   The fully-loaded Master Account object to be deleted.
      */
     public function delete($entity) {
-      error_log(__FUNCTION__);
       $this->deleteMultiple(array($entity));
     }
     /**
