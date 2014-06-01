@@ -581,7 +581,7 @@ function fratler_transactions_format_header($format = FMTransactionStyle::FM_DEF
 
   if ($format & FMTransactionStyle::FM_RID)
     $header['rid'] = array(
-      'data'    => t('Account'),
+      'data'    => t('Account', array(), array('context' => 'accounting')),
       'type'    => 'property',
     );
 

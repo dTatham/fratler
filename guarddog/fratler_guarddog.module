@@ -85,6 +85,7 @@ function fratler_guarddog_overview() {
     WATCHDOG_EMERGENCY => 'fratler-guarddog-emerg',
   );
   $rows = array();
+  $iids = array();
   
   $header = array(
     'severity' => array(
@@ -117,7 +118,8 @@ function fratler_guarddog_overview() {
     ->propertyOrderBy('tstamp_last', 'DESC')
     ->pager(30);
   $results = $query->execute();
-  $iids = array_keys($results['fratler_guarddog_issue']);
+  if (!empty($reults))
+    $iids = array_keys($results['fratler_guarddog_issue']);
 
   foreach (fratler_guarddog_issue_load_multiple($iids) as $issue) {
     $rows[] = array(

@@ -246,7 +246,7 @@ msgstr[1] "@count Transaktionskonten wurden erstellt."
 msgid "Updated one Transaction Account."
 msgid_plural "Updated @count Transaction Accounts."
 msgstr[0] "Ein Transaktionskonto wurde aktualisiert."
-msgstr[1] "@ Transaktionskonten wurden aktualisiert."
+msgstr[1] "@count Transaktionskonten wurden aktualisiert."
 
 #: fratler_accounts.module:269
 msgid "Fratler Suite"
