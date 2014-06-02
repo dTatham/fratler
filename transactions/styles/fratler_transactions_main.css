@@ -22,8 +22,11 @@
 }
 
 .fm_transaction {
-	white-space: nowrap;
 	font-size: 0.85em;
+	width: 100%;
+}
+.fm_transaction th {
+	white-space: nowrap;
 }
 
 .fratler_amount {
@@ -31,6 +34,9 @@
 }
 .fm_multiheader {
 	text-align: center;
+}
+.ft_tstamp { 
+	white-space: nowrap;
 }
 
 .fm_filter_label {

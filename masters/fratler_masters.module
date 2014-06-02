@@ -605,19 +605,15 @@ function fratler_masters_fac_autocomplete($string = '', $direction = 'rid', $typ
         continue;
     }
 
-    if (!$master->active && user_access('bypass inactive masters'))
-      $matches[$master->name] = '<div class="fac_auto_inactive">';
-    else
-      $matches[$master->name] = '';
-
-    $matches[$master->name] .= '<span class="fac_auto_master ' . ($master->balance < 0 ? 'fac_debit' : '' ) . '">' . $master->name . '</span>';
+    $matches[$master->name] = '<div class="fac_auto_container ' . (!$master->active && user_access('bypass inactive masters') ? 'fac_auto_inactive' : '') . '">';
 
     // Attach the balances if the user has the right permissions
     if (fratler_accounts_access(FAcPerm::DISPLAY_ACC | FAcPerm::DISPLAY_ALL))
       $matches[$master->name] .= '<span class="fac_auto_balance ' . ($master->balance < 0 ? 'fac_debit' : '' ) . '">' . _fac_format_amount($master->balance) . '</span>';
 
-    if (!$master->active && user_access('bypass inactive masters'))
-      $matches[$master->name] .= '</div>';
+    $matches[$master->name] .= '<span class="fac_auto_master fac_auto_name ' . ($master->balance < 0 ? 'fac_debit' : '' ) . '">' . $master->name . '</span>';
+
+    $matches[$master->name] .= '</div>';
   }
 
 

@@ -232,7 +232,7 @@ function fratler_accounts_access($context, $account = NULL, $object = NULL) {
   if ($context & FAcPerm::DISPLAY && $object) {
     // The user making a transaction always only gets to see the counter-transaction
     if ($object->amount < 0 && $object->sid <> 0)
-      return $object->sid == $account->aid;
+      return $object->sid == $account->aid || $object->iid == $account->aid;
     else
       return $object->rid == $account->aid || $object->iid == $account->aid;
   }
@@ -491,7 +491,7 @@ function fratler_accounts_overview($target = null) {
     foreach ($accounts as $account) {
       $rows[] = array(
         fratler_accounts_access(FAcPerm::DISPLAY, $account) ? l($account->name, 'fratler/account/' . $account->aid . '/statement') : $account->name,
-        array('data' => _fac_format_amount($account->balance), 'class' => 'fm_numeric'),
+        array('data' => _fac_format_amount($account->balance), 'class' => array('fm_numeric', $account->balance < 0 ? 'fac_debit' : '')),
         $account->tstamp ? (fratler_accounts_access(FAcPerm::DISPLAY, $account) ? l(format_date($account->tstamp, 'short'), 'fratler/transaction/' . $account->last_trans) : format_date($account->tstamp, 'short')) : t('-----'),
         $account->active ? '&#x2714' : '&#x2718',
         $account->blocked ? '&#x2714' : '&#x2718',
@@ -1158,10 +1158,10 @@ function fratler_accounts_ft_transaction_update($entity) {
  */
 function fratler_account_get_balance($account, $tstamp = 0) {
   if ($tstamp == 0)
-    return _fac_format_number(db_query('SELECT balance FROM {fratler_accounts} WHERE aid = :aid', array(':aid' => $account), array('fetch' => PDO::FETCH_NUM))->fetchField());
+    return db_query('SELECT balance FROM {fratler_accounts} WHERE aid = :aid', array(':aid' => $account), array('fetch' => PDO::FETCH_NUM))->fetchField();
   else
-    return _fac_format_number(db_query('SELECT balance FROM {fratler_transactions} WHERE rid = :aid AND tstamp >= :tstamp ORDER BY tstamp LIMIT 1', array(':aid' => $account, ':tstamp' => $tstamp), array('fetch' => PDO::FETCH_NUM))->fetchField());
-  return _fac_format_number(0);
+    return db_query('SELECT balance FROM {fratler_transactions} WHERE rid = :aid AND tstamp >= :tstamp ORDER BY tstamp LIMIT 1', array(':aid' => $account, ':tstamp' => $tstamp), array('fetch' => PDO::FETCH_NUM))->fetchField();
+  return 0;
 }
 
 

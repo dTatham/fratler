@@ -244,6 +244,7 @@ function fm_transaction_form_submit($form, &$form_state) {
   $entity = $form_state['values']['fratler_transaction'];
 
   // TODO: check database for existing signature in case some genius hit the back-button
+
   $entity = fratler_transaction_save($entity);
 
   if (!$form_state['values']['create_new'])
