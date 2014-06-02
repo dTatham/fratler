@@ -59,8 +59,14 @@
 }
 .fac_auto_balance {
   float: right;
+  display: inline;
 }
-
+.fac_auto_name {
+  display: block;
+}
+.fac_auto_container {
+  width: 100%;
+}
 .fac_auto_inactive {
   text-decoration: line-through;
 }
