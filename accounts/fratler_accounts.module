@@ -999,6 +999,7 @@ function fratler_accounts_fac_get_accounts($target = FALSE, $type = 'display') {
   if ($target == 'all') {
     $query = new EntityFieldQuery(); 
     $query->entityCondition('entity_type', 'fratler_account')
+      ->propertyCondition('state', '0', '<>')
       ->propertyCondition('aid', 0, '>');
     $query = $query->execute();
     if (isset($query['fratler_account']))
