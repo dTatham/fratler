@@ -35,8 +35,13 @@
 .fm_multiheader {
 	text-align: center;
 }
+<<<<<<< Updated upstream
 .ft_tstamp { 
 	white-space: nowrap;
+=======
+.ft_tstamp {
+  white-space: nowrap;
+>>>>>>> Stashed changes
 }
 
 .fm_filter_label {

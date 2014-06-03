@@ -780,14 +780,14 @@ class FratlerTransactionController
 
       // Write the whole shebang once to get the tid if we have none.
       if (empty($entity->tid))
-        #drupal_write_record('fratler_transactions', $entity, $primary_keys);
+        drupal_write_record('fratler_transactions', $entity, $primary_keys);
 
       // Now that we have the tid, add the hash to the existing record,
       // but only if the (previous) signature is OK.
       if ($entity->signature_ok) {
         // TODO insert watchdog
         $entity->signature = fratler_accounts_hash($entity);
-        #drupal_write_record('fratler_transactions', $entity, array('tid'));
+        drupal_write_record('fratler_transactions', $entity, array('tid'));
       }
 
       // Invoke post-save hook_fm_transaction_update() or hook_fm_transaction_new().
@@ -998,7 +998,7 @@ function fratler_transactions_ft_transaction_dry_run($entity) {
 
   // Check, if the amount exceeds the transaction-value and if the user's allowed to exceed it
   // fm_trans_max = 0 -> unlimited
-  else if (abs($entity->amount) > variable_get('fm_trans_max') && variable_get('fm_trans_max') != 0 && 
+  else if (abs($entity->amount) > variable_get('ft_trans_max') && variable_get('ft_trans_max') != 0 && 
       !fratler_accounts_access(FAcPerm::EXCEED_TRANS))
     $errors[FMErrors::AMOUNT_OVER_MAX] = 'amount';
 

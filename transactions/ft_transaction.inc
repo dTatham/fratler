@@ -220,9 +220,11 @@ function fm_transaction_form_validate($form, &$form_state) {
   $entity->balance = fratler_account_get_balance($entity->rid) + $entity->amount;
 
   // Do a dry-run on the transaction, to see, if it will go through
-  foreach (module_implements('ft_transaction_dry_run') as $module) {
-    foreach (module_invoke($module, 'ft_transaction_dry_run', $entity) as $error => $field)
-      form_set_error($field, ft_get_error($error));
+  if (!count(form_get_errors())) {
+    foreach (module_implements('ft_transaction_dry_run') as $module) {
+      foreach (module_invoke($module, 'ft_transaction_dry_run', $entity) as $error => $field)
+        form_set_error($field, ft_get_error($error));
+    }
   }
 
   // Only if the dry-run was successful: greenlight the transaction.
