@@ -993,7 +993,7 @@ function fratler_transactions_ft_transaction_dry_run($entity) {
   }
 
   // If the amount is invalid or <= 0 and we're not adjusting
-  if (!is_numeric($entity->amount) || ($entity->amount <= 0 && $entity->counter))
+  if (!is_numeric($entity->amount) || ($entity->amount <= 0 && $entity->counter) || (abs($entity->amount) < 0.01))
     $errors[FMErrors::AMOUNT_INVALID] = 'amount';
 
   // Check, if the amount exceeds the transaction-value and if the user's allowed to exceed it
@@ -1100,7 +1100,7 @@ function ft_get_error($error) {
 
     case FMErrors::TTYPE_INVALID:    return t('The transaction-type is invalid.');
 
-    case FMErrors::SIGNATURE_MISMATCH:  ''; #return t('Signature mismatch detected. Please contact an administrator immediately!');
+    case FMErrors::SIGNATURE_MISMATCH:  return t('Signature mismatch detected. Please contact an administrator immediately!');
 
     default: return t('An unknown error occured. Your transaction could not be completed.');
   }
