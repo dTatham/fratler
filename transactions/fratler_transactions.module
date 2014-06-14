@@ -992,7 +992,7 @@ function fratler_transactions_ft_transaction_dry_run($entity) {
     }
   }
 
-  // If the amount is invalid or <= 0 and we're not adjusting
+  // If the amount is invalid or <= 0 and we're not adjusting.
   if (!is_numeric($entity->amount) || ($entity->amount <= 0 && $entity->counter) || (abs($entity->amount) < 0.01))
     $errors[FMErrors::AMOUNT_INVALID] = 'amount';
 

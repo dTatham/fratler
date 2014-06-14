@@ -1110,12 +1110,22 @@ function _fac_format_number($amount, &$fmt = NULL) {
 function _fac_parse_number($amount, &$fmt = NULL) {
   if (!$fmt) 
     $fmt = _fac_nf_init(NumberFormatter::DECIMAL);
-  
-  // Kill the currency symbol, just in case some genius entered it
-  $amount = preg_replace('/' . _fac_cs($fmt) . '/', '', $amount);
-  $amount = preg_replace('/\p{Z}/u', '', $amount);
 
-  return numfmt_parse($fmt, $amount);
+  // Kill the currency symbol and whitespaces, just in case some genius entered them.
+  $amount = preg_replace('/(' . _fac_cs($fmt)  . ')(\s{1,})/', '', $amount);
+
+  // Run some basic sanity checks.
+  $grp = preg_quote(numfmt_get_symbol($fmt, NumberFormatter::GROUPING_SEPARATOR_SYMBOL));
+  $dec = preg_quote(numfmt_get_symbol($fmt, NumberFormatter::DECIMAL_SEPARATOR_SYMBOL));
+
+  // Build the regex the amount is parsed with.
+  // Takes the grouping separator into consideration but doesn't expect it.
+  $xpr = "/^-?(?:\d{1,}$grp?)+$dec?\d{0,2}$/";
+
+  if (preg_match($xpr, $amount))
+    return numfmt_parse($fmt, $amount);
+  else
+    return NULL;
 }
 
 /**

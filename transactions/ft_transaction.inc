@@ -205,8 +205,13 @@ function fm_transaction_form_validate($form, &$form_state) {
   if (!$entity->counter || $entity->sid != $user->uid)
     $entity->iid = $user->uid;
 
+  // Run sanity checks on the amount.
   $entity->amount = _fac_parse_number(check_plain($form_state['values']['amount']));
-  form_set_value($form['amount'], $entity->amount, $form_state);    // Make it look pretty to avoid confusion with decimal / thousands sep
+  if (empty($entity->amount)) {
+    form_set_error('amount', t('Amount invalid.'));
+    return;
+  }
+
 
   $entity->ttype = check_plain($form_state['values']['ttype']);
 
