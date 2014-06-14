@@ -757,7 +757,7 @@ class FratlerAccountController
         $account->signature = fratler_accounts_hash($account);
       else {
         $account->blocked = 1;
-        drupal_set_message(t('Signature of account !account\'s was corrupted. Changes were saved, but the signature was NOT updated. The account has been blocked to prevent further corruption.', 
+        drupal_set_message(t('Signature of account !account was corrupted. Changes were saved, but the signature was NOT updated. The account has been blocked to prevent further corruption.', 
               array('!account' => l(check_plain($account->name), 'fratler/account/' . $account->aid . '/overview'))), 'warning');
       }
       $state = db_merge('fratler_accounts')

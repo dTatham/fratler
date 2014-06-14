@@ -226,7 +226,7 @@ msgid "N/A"
 msgstr "n. v."
 
 #: fratler_accounts.module:748
-msgid "Signature of account !account's was corrupted. Changes were saved, but the signature was NOT updated. The account has been blocked to prevent further corruption."
+msgid "Signature of account !account was corrupted. Changes were saved, but the signature was NOT updated. The account has been blocked to prevent further corruption."
 msgstr ""
 "Die Signatur des Kontos !account ist beschädigt. Die Änderungen "
 "wurden gespeichert, aber die Signatur wurde NICHT aktualisiert. Das "
