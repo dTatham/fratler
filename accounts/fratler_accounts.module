@@ -218,7 +218,7 @@ function fratler_accounts_access($context, $account = NULL, $object = NULL) {
   if (!$account)
     $account = $user_account;
   if (!$account) // In case no account was found, we have no business here.
-    return false;
+    return FALSE;
 
   // Check if the user is allowed to display stuff.
   if ($context & FAcPerm::DISPLAY && !$account->is_own && !$object) {
@@ -230,12 +230,17 @@ function fratler_accounts_access($context, $account = NULL, $object = NULL) {
   // Expects $context to be a fully-loaded transaction object.
   // All involved parties are allowed to see transaction-singlets.
   if ($context & FAcPerm::DISPLAY && $object) {
+    // If the user can see all transactions, don't bother checking further.
+    if ($account->state & FAcPerm::DISPLAY_ALL)
+      return TRUE;
+
     // The user making a transaction always only gets to see the counter-transaction
     if ($object->amount < 0 && $object->sid <> 0)
       return $object->sid == $account->aid || $object->iid == $account->aid;
     else
       return $object->rid == $account->aid || $object->iid == $account->aid;
   }
+
   if ($context & FAcPerm::ADJUST && $object) {
     if ($object->rid == $account->aid)
       return $account->state & FAcPerm::ADJUST_OWN;
