@@ -576,6 +576,7 @@ function _fma_check_mach_name($mach_name) {
  */
 function fratler_masters_fac_autocomplete($string = '', $direction = 'rid', $type = 'transfer') {
   $matches = array();
+  $masters = array();
 
   $query = new EntityFieldQuery();
   $query->entityCondition('entity_type', 'fratler_masters')
@@ -585,7 +586,8 @@ function fratler_masters_fac_autocomplete($string = '', $direction = 'rid', $typ
     $query->propertyCondition('active', 1);
 
   $candidates = $query->execute();
-  $masters = fratler_masters_load_multiple(array_keys($candidates['fratler_masters']));
+  if (!empty($candidates))
+    $masters = fratler_masters_load_multiple(array_keys($candidates['fratler_masters']));
 
   if (!empty($masters))
     $matches[''] = t('Master Accounts:');
