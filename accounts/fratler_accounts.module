@@ -1184,6 +1184,7 @@ function _fac_autocomplete($string = '', $direction = 'rid', $type) {
     // Ask the other modules what they think of it
     $matches += module_invoke_all('fac_autocomplete', $string, $direction, $type);
 
+
     $query = new EntityFieldQuery();
     $query->entityCondition('entity_type', 'fratler_account')
       ->propertyCondition('name', '%' . $string . '%', 'LIKE')
@@ -1219,8 +1220,8 @@ function _fac_autocomplete($string = '', $direction = 'rid', $type) {
 
     }
 
-    drupal_json_output($matches);
   }
+    drupal_json_output($matches);
 }
 
 # vim: set expandtab tabstop=2 shiftwidth=2 autoindent smartindent:
