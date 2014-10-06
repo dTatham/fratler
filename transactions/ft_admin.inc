@@ -73,3 +73,10 @@ function fratler_transactions_admin_validate($form, &$form_state) {
   form_set_value($form['transfer']['ft_trans_max'], _fac_parse_number($form_state['values']['ft_trans_max']), $form_state);
 }
 
+/**
+ * Page callback to display and administer Transaction Types
+ */
+function ft_ttypes_admin() {
+
+  return array();
+}

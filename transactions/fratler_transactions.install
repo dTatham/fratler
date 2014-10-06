@@ -3,6 +3,54 @@
 
 function fratler_transactions_schema() {
   $schema = array();
+
+  $schema['fratler_transactions_ttypes'] = array(
+    'fields' => array(
+      'ttid'  => array(
+        'type'  => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'The consecutive Transaction Type-ID.',
+      ),
+      'category' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'description' => 'The category name which is exported by hook_ft_ttypes.',
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'type'  => 'varchar',
+        'length' => 16,
+        'description' => 'The name of the transaction type.',
+        'not null' => TRUE,
+      ),
+      'description' => array(
+        'type'  => 'varchar',
+        'length' => 128,
+        'description' => 'The name of the transaction type.',
+        'not null' => TRUE,
+      ),
+      'active' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+      ),
+      'locked' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'description' => 'If 1, this transaction type cannot be edited (only localized).',
+      ),
+    ),
+
+    'indexes' => array(
+      'idx_act'  => array('active'),
+      'idx_cat'  => array('category'),
+      'idx_lck'  => array('locked'),
+      ),
+    'primary key' => array('ttid'),
+    'description' => 'Holds all Fratler Transaction Types',
+    );
   $schema['fratler_transactions'] = array(
       'fields' => array(
         'tid'  => array(
@@ -77,66 +125,47 @@ function fratler_transactions_schema() {
 }
 
 function fratler_transactions_install() {
-  // Create a vocabulary holding the transaction-types and save the vid for later use
-  $vocabulary  = (object) array(
-      'name'    => t('Transaction-Types'),
-      'description'  => t('Fratler Transaction-Types. DO NOT REMOVE THIS VOCABULARY. I\'m serious!'),
-      'machine_name'  => 'ft_types',
-      'module'  => 'fratler_transactions',
-      );
-  taxonomy_vocabulary_save($vocabulary);
-  variable_set('ft_vocab', $vocabulary->vid);
+  $ttype = (object) array(
+    'ttid'  => 0,
+    'category' => 'transfer',
+    'name'  => 'T',
+    'description' => 'Standard Transfer',
+    'active' => 1,
+    'locked' => 1,
+  );
+  drupal_write_record('fratler_transactions_ttypes', $ttype);
+  variable_set('ft_default_transfer', $ttype->ttid);
+  // Have the terms triggered for translation.
+  t('T', array(), array('context' => 'Abbreviation for Standard Transfer'));
+  t('Standard Transfer');
 
-  // Populate the vocabulary with some generic transaction-types
-  // Transfers
-  $transactions  = (object) array(
-      'name'    => t('Transfers'),
-      'description'  => t('Transfer transaction types'),
-      'parent'  => array(0),
-      'vid'    => $vocabulary->vid,
-      );
-  taxonomy_term_save($transactions);
-  variable_set('ft_vocab_transfer', $transactions->tid);
+  $ttype = (object) array(
+    'ttid'  => 0,
+    'category' => 'deposit',
+    'name'  => 'D',
+    'description' => 'Deposit',
+    'active' => 1,
+    'locked' => 1,
+  );
+  drupal_write_record('fratler_transactions_ttypes', $ttype);
+  variable_set('ft_default_deposit', $ttype->ttid);
+  // Have the terms triggered for translation.
+  t('D', array(), array('context' => 'Abbreviation for Deposit'));
+  t('Deposit');
 
-  // Standard-Transfers
-  $term     = (object) array(
-      'name'    => t('T', array(), array('context' => 'Abbreviation for Standard Transfer')),
-      'description'  => t('Standard Transfer'),
-      'parent'  => $transactions->tid,
-      'vid'    => $vocabulary->vid,
-      );
-  taxonomy_term_save($term);
-  variable_set('ft_vocab_transfer_term', $term->tid);
-
-  // Adjustments (transaction without counter-transactions)
-  $adjustments   = (object) array(
-      'name'    => t('Adjustments'),
-      'description'  => t('Adjustment transaction types'),
-      'parent'  => array(0),
-      'vid'    => $vocabulary->vid,
-      );
-  taxonomy_term_save($adjustments);
-  variable_set('ft_vocab_adjustment', $adjustments->tid);
-
-  // Adjustment-Type: Withdrawal
-  $term     = (object) array(
-      'name'    => t('W', array(), array('context' => 'Abbreviation for Withdrawal')),
-      'description'  => t('Withdrawal'),
-      'parent'  => $adjustments->tid,
-      'vid'    => $vocabulary->vid,
-      );
-  taxonomy_term_save($term);
-  variable_set('ft_vocab_adjustment_withdraw', $term->tid);
-
-  // Adjustment-Type: Deposit
-  $term    = (object) array(
-      'name'    => t('D', array(), array('context' => 'Abbreviation for Deposit')),
-      'description'  => t('Deposit'),
-      'parent'  => $adjustments->tid,
-      'vid'    => $vocabulary->vid,
-      );
-  taxonomy_term_save($term);
-  variable_set('ft_vocab_adjustment_deposit', $term->tid);
+  $ttype = (object) array(
+    'ttid'  => 0,
+    'category' => 'withdrawal',
+    'name'  => 'W',
+    'description' => 'Withdrawal',
+    'active' => 1,
+    'locked' => 1,
+  );
+  drupal_write_record('fratler_transactions_ttypes', $ttype);
+  variable_set('ft_default_withdrawal', $ttype->ttid);
+  // Have the terms triggered for translation.
+  t('W', array(), array('context' => 'Abbreviation for Withdrawal'));
+  t('Withdrawal');
 
 
   variable_set('ft_trans_max', 10);
@@ -155,14 +184,9 @@ function fratler_transactions_enable() {
 
 
 function fratler_transactions_uninstall() {
-  @taxonomy_vocabulary_delete(variable_get('ft_vocab', -1));
-
-  variable_del('ft_vocab');
-  variable_del('ft_vocab_transfer');
-  variable_del('ft_vocab_transfer_term');
-  variable_del('ft_vocab_adjustment');
-  variable_del('ft_vocab_adjustment_withdraw');
-  variable_del('ft_vocab_adjustment_deposit');
+  variable_del('ft_default_transfer');
+  variable_del('ft_default_withdraw');
+  variable_del('ft_default_deposit');
 
   variable_del('ft_trans_max');
   variable_del('ft_overdraw_limit');

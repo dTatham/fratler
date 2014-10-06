@@ -34,6 +34,25 @@ function fratler_transactions_menu() {
     'file'    => 'ft_admin.inc',
   );
 
+  $items['admin/config/fratler/transactions/main'] = array(
+    'title'    => 'Transactions',
+    'description'  => 'Configure the transaction entity of the fratler_suite',
+    'page callback'  => 'drupal_get_form',
+    'page arguments' => array('fratler_transactions_admin'),
+    'access arguments' => array('access administration pages'),
+    'type'  => MENU_DEFAULT_LOCAL_TASK,
+    'file'    => 'ft_admin.inc',
+  );
+
+  $items['admin/config/fratler/transactions/ttypes'] = array(
+    'title'    => 'Transaction types',
+    'description'  => 'Configure transaction types for Fratler Transactions',
+    'page callback' => 'ft_ttypes_admin',
+    'access arguments' => array('access administration pages'),
+    'type'  => MENU_LOCAL_TASK,
+    'file'    => 'ft_admin.inc',
+  );
+
    $items['fratler/transaction/transfer'] = array(
     'title'    => 'New transfer',
     'description'  => 'Make a new transaction',
@@ -502,8 +521,8 @@ function fratler_transactions_format_row($entity, $format = FMTransactionStyle::
 
   if ($format & FMTransactionStyle::FM_TTYPE)
     $row['ttype'] = array(
-      'data'  => isset($entity->ttype_name) ? $entity->ttype_name : taxonomy_term_load($entity->ttype)->name,
-      'title'  => taxonomy_term_load($entity->ttype)->description,
+      'data'  => isset($entity->ttype_name) ? $entity->ttype_name : fratler_transaction_type_load($entity->ttype)->name,
+      'title'  => fratler_transaction_type_load($entity->ttype)->description,
     );
 
   if ($format & FMTransactionStyle::FM_TXT)
@@ -873,7 +892,7 @@ class FratlerTransactionController
         $entity->txt    = filter_xss($entity->txt, array('br', 'em', 'strong','cite','b','i','u'));
 
         // Attach a field with the transaction type - we'll need it probably
-        $entity->ttype_name   = taxonomy_term_load($entity->ttype)->name;
+        $entity->ttype_name   = fratler_transaction_type_load($entity->ttype)->name;
       }
       return $entities;
     }
@@ -886,6 +905,171 @@ class FratlerTransactionController
     }
   }
 
+/**
+ * FratlerTransactionTypeController extends DrupalDefaultEntityController
+ *
+ * CRUD Interfaces for Transaction Types
+ */
+class FratlerTransactionTypeController
+  extends DrupalDefaultEntityController {
+
+    /**
+     * Create and return a new transaction-entity.
+     */
+    public function create() {
+      $entity = new stdClass();
+      $entity->ttid  = 0;   // Transaction Type-ID.
+      $entity->active = 0;  // Active?
+      $entity->locked = 0;  // Locked type, cannot be edited.
+      $entity->default = 0; // The latest default-entry will be selected as default Transaction Type for the given category.
+      $entity->category = '';  // The category in which the Transaction Type should appear.
+      $entity->name = '';   // Short name of the Transaction Type
+      $entity->description = '';    // Name of the Transaction Type
+
+      return $entity;
+    }
+
+    /**
+     * Save the entity-fields.
+     */
+    public function save($entity) {
+      // Invoke hook_entity_presave().
+      module_invoke_all('ft_ttype_presave', $entity);
+
+      // 'primary_keys' is used to determine whether we're dealing with an update or 
+      // a new entry. So, if the entry already has an ID, we'll specify 'tid' as the key.
+      $primary_keys = $entity->ttid ? 'ttid' : array();
+
+      drupal_write_record('fratler_transactions_ttypes', $entity, $primary_keys);
+
+      // Invoke post-save hook_fm_transaction_update() or hook_fm_transaction_new().
+      module_invoke_all(empty($entity->ttid) ? 'ft_ttype_new' : 'ft_ttype_update', $entity);
+
+      // Clear the static cache
+      $this->resetCache(array($entity->ttid));
+
+      return $entity;
+    }
+
+    public function delete($entity) {
+      $this->delete_multiple(array($entity));
+    }
+
+    /**
+     * Loads the entity and does some cosmetics
+     */
+    public function load($ids = array(), $conditions = array()) {
+      $entities = parent::load($ids, array());
+      foreach ($entities as $entity) {
+        // Clean up the names (avoid xss etc.)
+        $entity->name = check_plain($entity->name);
+        $entity->description = check_plain($entity->description);
+      }
+      return $entities;
+    }
+
+    /**
+     * Transactions are not meant to be deleted at this stage, so this is just a stub
+     */
+    public function delete_multiple($ttypes) {
+      foreach ($ttypes as $ttype) {
+        $count = new EntityFieldQuery();
+        $count->entityCondition('entity_type', 'fratler_transaction')
+          ->propertyCondition('ttype', $ttype)
+          ->count()
+          ->execute();
+        // If the ttype is in use we cannot delete it.
+        if ($count > 0) {
+          drupal_set_message(
+            format_plural($count, 
+              'This Transaction Type is currently used in one transaction. Please rebook it first.', 
+              'This Transaction Type is currently used in @count transactions. Please rebook them first.'),
+            'error');
+          continue;
+        }
+
+        $transaction = db_transaction();
+        try {
+            // Invoke hook_entity_delete()
+            module_invoke_all('entity_delete', $entity, 'ft_ttype');
+
+          db_delete('fratler_transactions_ttypes')->condition('ttid', $ttype->ttid)->execute();
+        } catch (Exception $e) {
+          $transaction->rollback();
+          watchdog_exception('fratler_transactions', $e);
+          throw $e;
+        }
+        unset($transaction); // Force commit.
+        drupel_set_message(t('Deleted Transaction Type @name.', array($ttype->name)));
+      }
+    }
+  }
+
+/**
+ * Load a Transaction Type entity.
+ *
+ * @param ttid
+ *  The Transaction Type ID.
+ *
+ * @param reset
+ *  Whether to reset the entity cache.
+ *
+ * @return
+ *  A fully-loaded Transaction Type object.
+ */
+function fratler_transaction_type_load($ttid = NULL, $reset = FALSE) {
+  $ttids = (isset($ttid) ? array($ttid) : array());
+  $ttype = fratler_transaction_type_load_multiple($ttids, array(), $reset);
+  return $ttype ? reset($ttype) : FALSE;
+}
+
+/**
+ * Load multiple Transaction Type entities.
+ *
+ * @param ttids
+ *  An array holding the Transaction Type IDs.
+ *
+ * @param reset
+ *  Whether to reset the entity cache.
+ *
+ * @return
+ *  An array containing fully-loaded Transaction Type entities.
+ */
+function fratler_transaction_type_load_multiple($ttids = FALSE, $conditions = array(), $reset = FALSE) {
+  return entity_load('fratler_transaction_type', $ttids, $conditions, $reset);
+}
+
+/**
+ * Load Transaction Types by category.
+ *
+ * @param category
+ *   The name of the category.
+ *
+ * @param locked
+ *  If set to FALSE, only load unlocked (user-defined) entities.
+ *  Leave this set to NULL to load locked and unlocked entities.
+ *
+ * @param active
+ *  If set to FALSE, inactive entities will be loaded as well.
+ *
+ * @return
+ *  An array containing fully-loaded Transaction Type entities.
+ */
+function fratler_transaction_type_load_by_category($category, $locked = NULL, $active = TRUE) {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'fratler_transaction_type')
+    ->propertyCondition('category', check_plain($category))->propertyCondition('active', (int)$active);
+
+  if ($locked !== NULL)
+    $query->propertyCondition('locked', (int)$locked);
+
+  $result = $query->execute();
+
+  if (isset($result['fratler_transaction_type']))
+    return fratler_transaction_type_load_multiple(array_keys($result['fratler_transaction_type']));
+
+  return array();
+}
 
 function fratler_transactions_entity_info() {
   $info = array();
@@ -904,19 +1088,34 @@ function fratler_transactions_entity_info() {
     'uri callback'    => 'fratler_transaction_uri',
 
     // At this point, we're not fiddling around with the fields.
-    // TODO: assess feasibility of fieldabledness
-    'fieldable'    => false,
+    // TODO: assess feasibility of fieldabledness.
+    'fieldable'    => FALSE,
 
-    // entity_keys tell the controller, which field is used for keys-functions
+    // entity_keys tell the controller, which field is used for keys-functions.
     'entity keys'    => array(
       'id'  => 'tid',
     ),
 
-    // We DO want the transactions to be cached, but not right now (for development-purposes)
-    'static cache'    => true,
+    // We DO want the transactions to be cached, but not right now (for development-purposes).
+    'static cache'    => TRUE,
 
-    // We don't make use of bundles (yet)
+    // We don't make use of bundles (yet).
     'bundles'    => array(),
+  );
+  $info['fratler_transaction_type'] = array(
+    'label' => t('Transaction Type'),
+
+    'controler class' => 'FratlerTransactionTypeController',
+    'base table' => 'fratler_transactions_ttypes',
+    'fieldable' => FALSE,
+
+    'entity keys' => array(
+      'id' => 'ttid',
+      'label' => 'name',
+      'language' => 'language',
+    ),
+    'static cache' => TRUE,
+    'bundles' => array(),
   );
 
   return $info;
@@ -1003,7 +1202,7 @@ function fratler_transactions_ft_transaction_dry_run($entity) {
     $errors[FMErrors::AMOUNT_OVER_MAX] = 'amount';
 
   // Check the transaction-type for a pulse
-  if (!taxonomy_term_load($entity->ttype))
+  if (!fratler_transaction_type_load($entity->ttype))
     $errors[FMErrors::TTYPE_INVALID] = 'ttype';
 
   // Check for overdraw

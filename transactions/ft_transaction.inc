@@ -2,22 +2,23 @@
 // vim:fenc=utf-8:ft=php:ai:si:ts=2:sw=2:et:nu:fdm=indent:fdn=1:
 
 /*
- * Helper-function to map the results of taxonomy_get_children to an
- * assoc-array, that can be handled by #options
+ * Helper-function to map the ttypes in the proper form.
  *
- * @param parent
- *   the parent term-id to be loaded
+ * @param ttypes
+ *   An array of ttype-entities.
  *
  * @returns
- *   An associative array with the term-id as key '<short> (<desc>)' as value
+ *   An associative array with the term-id as key and '<short> (<desc>)' as value.
  */
-function _fm_map_ttypes($parent) {
-  $children = taxonomy_get_children($parent);
-  $bunker = array();
-  foreach ($children as $child)
-    $bunker[$child->tid] = $child->name . ' (' . $child->description . ')';
+function _ft_map_ttypes($ttypes) {
+  $mapped = array();
 
-  return $bunker;
+  foreach ($ttypes as $ttype)
+    $mapped[$ttype->ttid] = t('@name (@description)', array('@name' => t($ttype->name), '@description' => t($ttype->description)));
+
+  asort($mapped);
+
+  return $mapped;
 
 }
 
@@ -103,15 +104,6 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
       '#default_value' => $entity->txt,
     );
 
-    $form['ttype'] = array(
-      '#type'    => (count(taxonomy_get_children(variable_get('ft_vocab_' . $type))) <= 1) ? 'value' : 'select',
-      '#title'  => t('Transaction-Type'),
-      '#required'  => true,
-      '#options'  => _fm_map_ttypes(variable_get('ft_vocab_' . $type)),
-      '#default_value' => ($entity->ttype <> 0) ? $entity->ttype : ($type == 'transfer') ? variable_get('ft_vocab_transfer_term') : null,
-      '#empty_option'  => t('- @empty_option -', array('@empty_option' => taxonomy_term_load(variable_get('ft_vocab_' . $type))->name)),
-    );
-
     $form['fratler_transaction'] = array(  // Entity-Container - no touching!
       '#type'    => 'value',
       '#value'  => $entity,
@@ -132,6 +124,8 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
       '#value'  => $entity,
     );
 
+    debug($entity);
+
     $rid = fratler_account_load($entity->rid);
     $entity->balance_rid = $rid->balance+$entity->amount;
     if ($entity->counter) {
@@ -142,18 +136,45 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
 #    $entity->balance = $entity->counter ? $sid->balance-$entity->amount : $rid->balance+$entity->amount;
 
     // Draw me like one of your French tables...
-    $style = FMTransactionStyle::FM_DEFAULT ^ FMTransactionStyle::FM_TID ^ FMTransactionStyle::FM_SIGNATURE;
+    $style = FMTransactionStyle::FM_DEFAULT ^ FMTransactionStyle::FM_TID ^ FMTransactionStyle::FM_SIGNATURE ^ FMTransactionStyle::FM_TTYPE;
     if (!$entity->counter)
       $style ^= FMTransactionStyle::FM_BAL_SID;
     $markup = fratler_transaction_display($entity, $style);
 
-    // Calculate the new acount-balance
+    // Calculate the new acount-balance.
     $entity->balance = fratler_account_get_balance($entity->rid) + $entity->amount;
-
 
     $form['markup'] = array(
       '#markup'  => $markup,
     );
+
+    $ttypes = array();
+    $form['ttype'] = array(
+      '#title'  => t('Transaction-Type'),
+      '#required'  => true,
+    );
+
+    if ($type == 'transfer') {
+      $form['ttype']['#empty_option']  = t('- Transfers -');
+      $form['ttype']['#default_value'] = variable_get('ft_default_transfer');
+      $ttypes = fratler_transaction_type_load_by_category($type);
+    }
+    else {
+      if ($entity->amount > 0) {
+        $form['ttype']['#empty_option'] = t('- Deposits -');
+        $form['ttype']['#default_value'] = variable_get('ft_default_deposit');
+        $ttypes = fratler_transaction_type_load_by_category('deposit');
+      }
+      else {
+        $form['ttype']['#empty_option'] = t('- Withdrawals -');
+        $form['ttype']['#default_value'] = variable_get('ft_default_withdrawal');
+        $ttypes = fratler_transaction_type_load_by_category('withdrawal');
+      }
+    }
+
+    $form['ttype']['#type'] = (count($ttypes) <= 1) ? 'value' : 'select';
+    $form['ttype']['#options'] = _ft_map_ttypes($ttypes);
+
     $form['create_new'] = array(
       '#type'    => 'checkbox',
       '#title'  => t('Create new transaction after this one.'),
@@ -180,6 +201,25 @@ function fm_transaction_form_validate($form, &$form_state) {
   if (isset($form_state['storage']['confirm'])) {
     if (!is_numeric($form_state['values']['create_new']))
       form_set_error('create_new', t('Invalid value.'));
+
+    // Once it's set, vet the transaction-type.
+    if (isset($form_state['values']['ttype']))
+      $entity->ttype = check_plain($form_state['values']['ttype']);
+
+    // Once we have a ttype, do a dry-run on the transaction, to see, if it will go through.
+    if (!count(form_get_errors()) && isset($form_state['values']['ttype'])) {
+      foreach (module_implements('ft_transaction_dry_run') as $module) {
+        foreach (module_invoke($module, 'ft_transaction_dry_run', $entity) as $error => $field)
+          form_set_error($field, ft_get_error($error));
+      }
+    }
+
+    // Only if the dry-run was successful: greenlight the transaction.
+    if (empty(form_get_errors()))
+      $entity->signature_ok = TRUE;
+
+    // Save up the entity
+    form_set_value($form['fratler_transaction'], $entity, $form_state);
     return;
   }
 
@@ -208,8 +248,6 @@ function fm_transaction_form_validate($form, &$form_state) {
   $entity->amount = _fac_parse_number(check_plain($form_state['values']['amount']));
   form_set_value($form['amount'], $entity->amount, $form_state);    // Make it look pretty to avoid confusion with decimal / thousands sep
 
-  $entity->ttype = check_plain($form_state['values']['ttype']);
-
   // Vet the transaction-memo
   $entity->txt = filter_xss($form_state['values']['txt'], array('em', 'strong','cite','b','i','u'));
 
@@ -219,20 +257,9 @@ function fm_transaction_form_validate($form, &$form_state) {
   // Calculate the new acount-balance
   $entity->balance = fratler_account_get_balance($entity->rid) + $entity->amount;
 
-  // Do a dry-run on the transaction, to see, if it will go through
-  if (!count(form_get_errors())) {
-    foreach (module_implements('ft_transaction_dry_run') as $module) {
-      foreach (module_invoke($module, 'ft_transaction_dry_run', $entity) as $error => $field)
-        form_set_error($field, ft_get_error($error));
-    }
-  }
-
-  // Only if the dry-run was successful: greenlight the transaction.
-  if (empty(form_get_errors()))
-    $entity->signature_ok = TRUE;
-
   // Save up the entity
   form_set_value($form['fratler_transaction'], $entity, $form_state);
+
 }
 
 function fm_transaction_form_submit($form, &$form_state) {
