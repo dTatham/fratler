@@ -157,18 +157,18 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
     if ($type == 'transfer') {
       $form['ttype']['#empty_option']  = t('- Transfers -');
       $form['ttype']['#default_value'] = variable_get('ft_default_transfer');
-      $ttypes = fratler_transaction_type_load_by_category($type);
+      $ttypes = fratler_transaction_type_load_by_category($type, TRUE);
     }
     else {
       if ($entity->amount > 0) {
         $form['ttype']['#empty_option'] = t('- Deposits -');
         $form['ttype']['#default_value'] = variable_get('ft_default_deposit');
-        $ttypes = fratler_transaction_type_load_by_category('deposit');
+        $ttypes = fratler_transaction_type_load_by_category('deposit', TRUE);
       }
       else {
         $form['ttype']['#empty_option'] = t('- Withdrawals -');
         $form['ttype']['#default_value'] = variable_get('ft_default_withdrawal');
-        $ttypes = fratler_transaction_type_load_by_category('withdrawal');
+        $ttypes = fratler_transaction_type_load_by_category('withdrawal', TRUE);
       }
     }
 

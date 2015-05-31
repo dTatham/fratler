@@ -35,6 +35,12 @@ function fratler_transactions_schema() {
         'size' => 'tiny',
         'not null' => TRUE,
       ),
+      'selectable' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'description' => 'If 0, this transaction type cannot be selected during an user-generated transaciton (set to 0 for automatic transactions).',
+      ),
       'locked' => array(
         'type' => 'int',
         'size' => 'tiny',
@@ -130,6 +136,7 @@ function fratler_transactions_install() {
     'category' => 'transfer',
     'name'  => 'T',
     'description' => 'Standard Transfer',
+    'selectable' => 1,
     'active' => 1,
     'locked' => 1,
   );
@@ -144,6 +151,7 @@ function fratler_transactions_install() {
     'category' => 'deposit',
     'name'  => 'D',
     'description' => 'Deposit',
+    'selectable' => 1,
     'active' => 1,
     'locked' => 1,
   );
@@ -158,6 +166,7 @@ function fratler_transactions_install() {
     'category' => 'withdrawal',
     'name'  => 'W',
     'description' => 'Withdrawal',
+    'selectable' => 1,
     'active' => 1,
     'locked' => 1,
   );

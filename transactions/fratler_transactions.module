@@ -51,6 +51,34 @@ function fratler_transactions_menu() {
     'access arguments' => array('access administration pages'),
     'type'  => MENU_LOCAL_TASK,
     'file'    => 'ft_admin.inc',
+    'weight'  => 99,
+  );
+
+  $items['admin/config/fratler/transactions/ttypes/add'] = array(
+    'title'    => 'Add new Transaction Type',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ft_ttypes_edit', entity_get_controller('fratler_transaction_type')->create()),
+    'access arguments' => array('access administration pages'),
+    'type'  => MENU_LOCAL_ACTION,
+    'file'    => 'ft_admin.inc',
+  );
+
+  $items['admin/config/fratler/transactions/ttypes/%fratler_transaction_type/edit'] = array(
+    'title'    => 'Edit Transaction Type',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ft_ttypes_edit', 5),
+    'access arguments' => array('access administration pages'),
+    'type'  => MENU_CALLBACK,
+    'file'    => 'ft_admin.inc',
+  );
+
+  $items['admin/config/fratler/transactions/ttypes/%fratler_transaction_type/delete'] = array(
+    'title'    => 'Delete Transaction Type',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ft_ttypes_delete', 5),
+    'access arguments' => array('access administration pages'),
+    'type'  => MENU_CALLBACK,
+    'file'    => 'ft_admin.inc',
   );
 
    $items['fratler/transaction/transfer'] = array(
@@ -921,10 +949,10 @@ class FratlerTransactionTypeController
       $entity->ttid  = 0;   // Transaction Type-ID.
       $entity->active = 0;  // Active?
       $entity->locked = 0;  // Locked type, cannot be edited.
-      $entity->default = 0; // The latest default-entry will be selected as default Transaction Type for the given category.
+      $entity->selectable = 0; // Whether this item can be selected during a standard transaction.
       $entity->category = '';  // The category in which the Transaction Type should appear.
-      $entity->name = '';   // Short name of the Transaction Type
-      $entity->description = '';    // Name of the Transaction Type
+      $entity->name = '';   // Short name of the Transaction Type.
+      $entity->description = '';    // Name of the Transaction Type.
 
       return $entity;
     }
@@ -961,9 +989,9 @@ class FratlerTransactionTypeController
     public function load($ids = array(), $conditions = array()) {
       $entities = parent::load($ids, array());
       foreach ($entities as $entity) {
-        // Clean up the names (avoid xss etc.)
-        $entity->name = check_plain($entity->name);
-        $entity->description = check_plain($entity->description);
+        // Clean up the names and localize them (avoid xss etc.).
+        $entity->name = t('@name', array('@name' => check_plain($entity->name)));
+        $entity->description = t('@desc', array('@desc' => check_plain($entity->description)));
       }
       return $entities;
     }
@@ -973,25 +1001,11 @@ class FratlerTransactionTypeController
      */
     public function delete_multiple($ttypes) {
       foreach ($ttypes as $ttype) {
-        $count = new EntityFieldQuery();
-        $count->entityCondition('entity_type', 'fratler_transaction')
-          ->propertyCondition('ttype', $ttype)
-          ->count()
-          ->execute();
-        // If the ttype is in use we cannot delete it.
-        if ($count > 0) {
-          drupal_set_message(
-            format_plural($count, 
-              'This Transaction Type is currently used in one transaction. Please rebook it first.', 
-              'This Transaction Type is currently used in @count transactions. Please rebook them first.'),
-            'error');
-          continue;
-        }
 
         $transaction = db_transaction();
         try {
             // Invoke hook_entity_delete()
-            module_invoke_all('entity_delete', $entity, 'ft_ttype');
+            module_invoke_all('entity_delete', $ttype, 'ft_ttype');
 
           db_delete('fratler_transactions_ttypes')->condition('ttid', $ttype->ttid)->execute();
         } catch (Exception $e) {
@@ -1000,7 +1014,7 @@ class FratlerTransactionTypeController
           throw $e;
         }
         unset($transaction); // Force commit.
-        drupel_set_message(t('Deleted Transaction Type @name.', array($ttype->name)));
+        drupal_set_message(t('Deleted Transaction Type @name.', array('@name' => $ttype->name)));
       }
     }
   }
@@ -1040,10 +1054,38 @@ function fratler_transaction_type_load_multiple($ttids = FALSE, $conditions = ar
 }
 
 /**
+ * Load Transaction Type by name.
+ *
+ * @param name 
+ *   The name of the Transaction Type.
+ *
+ * @param reset
+ *  Whether to reset the entity cache.
+ *
+ * @return
+ *  A fully-loaded Transaction Type object.
+ */
+function fratler_transaction_type_load_by_name($name, $reset = FALSE) {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'fratler_transaction_type')
+    ->propertyCondition('name', check_plain($name));
+
+  $result = $query->execute();
+
+  if (isset($result['fratler_transaction_type']))
+    return fratler_transaction_type_load_multiple(array_keys($result['fratler_transaction_type']), $reset);
+
+  return FALSE;
+}
+/**
  * Load Transaction Types by category.
  *
  * @param category
  *   The name of the category.
+ *
+ * @param selectable 
+ *  If set to TRUE, only entities that can be selected by users are returned (will not display automatic transaction types).
+ *  Leave this set to NULL to ignore this filter.
  *
  * @param locked
  *  If set to FALSE, only load unlocked (user-defined) entities.
@@ -1055,11 +1097,14 @@ function fratler_transaction_type_load_multiple($ttids = FALSE, $conditions = ar
  * @return
  *  An array containing fully-loaded Transaction Type entities.
  */
-function fratler_transaction_type_load_by_category($category, $locked = NULL, $active = TRUE) {
+function fratler_transaction_type_load_by_category($category, $selectable = NULL, $locked = NULL, $active = TRUE) {
   $query = new EntityFieldQuery();
   $query->entityCondition('entity_type', 'fratler_transaction_type')
-    ->propertyCondition('category', check_plain($category))->propertyCondition('active', (int)$active);
+    ->propertyCondition('category', check_plain($category))
+    ->propertyCondition('active', (int)$active);
 
+  if ($selectable !== NULL)
+    $query->propertyCondition('selectable', (int)$selectable);
   if ($locked !== NULL)
     $query->propertyCondition('locked', (int)$locked);
 
@@ -1069,6 +1114,26 @@ function fratler_transaction_type_load_by_category($category, $locked = NULL, $a
     return fratler_transaction_type_load_multiple(array_keys($result['fratler_transaction_type']));
 
   return array();
+}
+
+/**
+ * Wrapper to save a Transaction Type.
+ *
+ * @param $entity
+ *   The fully-populated Fratler Transaction Type Entity.
+ */
+function fratler_transaction_type_save(&$entity) {
+  return entity_get_controller('fratler_transaction_type')->save($entity);
+}
+
+/**
+ * Wrapper to delete a Transaction Type.
+ *
+ * @param $entity
+ *   The fully-populated Fratler Transaction Type Entity.
+ */
+function fratler_transaction_type_delete(&$entity) {
+  return entity_get_controller('fratler_transaction_type')->delete($entity);
 }
 
 function fratler_transactions_entity_info() {
@@ -1105,7 +1170,7 @@ function fratler_transactions_entity_info() {
   $info['fratler_transaction_type'] = array(
     'label' => t('Transaction Type'),
 
-    'controler class' => 'FratlerTransactionTypeController',
+    'controller class' => 'FratlerTransactionTypeController',
     'base table' => 'fratler_transactions_ttypes',
     'fieldable' => FALSE,
 
