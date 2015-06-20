@@ -1208,17 +1208,19 @@ function fratler_transactions_ft_transaction_dry_run($entity) {
   // Before we start, check the integrity of the balances-db
   // TODO still need a cron-job to keep an eye on the signatures in both databases!
 
-  // Step 1: grab the involved accounts
-  $rid = fratler_account_load($entity->rid);
-  $sid = fratler_account_load($entity->sid);
+  // Step 1: Check if accounts loaded properly.
+  if (!$entity->rid || !($rid = fratler_account_load($entity->rid)))
+    return array(FMErrors::RID_INVALID => 'rid');
+  if ($entity->counter && !($sid = fratler_account_load($entity->sid)))
+    return array(FMErrors::SID_INVALID => 'sid');
 
-  // Step 2: check the signatures of the involved accounts
+  // Step 2: check the signatures of the involved accounts.
   // If the signatures don't match, shit has officially hit the fan.
   if (!$rid->signature_ok)  {
     return array(FMErrors::SIGNATURE_MISMATCH => 'rid');
   }
 
-  if ($sid && !$sid->signature_ok) 
+  if (isset($sid) && !$sid->signature_ok) 
     return array(FMErrors::SIGNATURE_MISMATCH => 'sid');
 
 
@@ -1257,7 +1259,7 @@ function fratler_transactions_ft_transaction_dry_run($entity) {
   }
 
   // If the amount is invalid or <= 0 and we're not adjusting
-  if (!is_numeric($entity->amount) || ($entity->amount <= 0 && $entity->counter))
+  if (!is_numeric($entity->amount) || ($entity->amount <= 0 && $entity->counter) || abs($entity->amount) < 0.01)
     $errors[FMErrors::AMOUNT_INVALID] = 'amount';
 
   // Check, if the amount exceeds the transaction-value and if the user's allowed to exceed it
@@ -1267,7 +1269,7 @@ function fratler_transactions_ft_transaction_dry_run($entity) {
     $errors[FMErrors::AMOUNT_OVER_MAX] = 'amount';
 
   // Check the transaction-type for a pulse
-  if (!fratler_transaction_type_load($entity->ttype))
+  if ($entity->ttype && !fratler_transaction_type_load($entity->ttype))
     $errors[FMErrors::TTYPE_INVALID] = 'ttype';
 
   // Check for overdraw
@@ -1325,7 +1327,9 @@ class FMErrors {
   const RID_OVERDRAW_EX  = 24;  // The adjustment will exceed the recipient's account
   const OWN_OVERDRAW_EX  = 25;  // The transaction will exceed the user's account
 
-  const TTYPE_INVALID  = 30;  // The transaction-type is invalid
+  const SID_INVALID  = 30;  // The transaction-type is invalid
+  const RID_INVALID  = 31;  // The transaction-type is invalid
+  const TTYPE_INVALID  = 32;  // The transaction-type is invalid
 
   const SIGNATURE_MISMATCH = 666; // Congratulations, you're fucked!
 
@@ -1362,9 +1366,11 @@ function ft_get_error($error) {
     case FMErrors::OWN_OVERDRAW:    return t('This transaction will overdraw your account.');
     case FMErrors::OWN_OVERDRAW_EX:    return t('This transaction will exceed your overdraw-limit.');
 
+    case FMErrors::SID_INVALID:    return t('The sender is invalid.');
+    case FMErrors::RID_INVALID:    return t('The recipient is invalid.');
     case FMErrors::TTYPE_INVALID:    return t('The transaction-type is invalid.');
 
-    case FMErrors::SIGNATURE_MISMATCH:  ''; #return t('Signature mismatch detected. Please contact an administrator immediately!');
+    case FMErrors::SIGNATURE_MISMATCH:  return t('Signature mismatch detected. Please contact an administrator immediately!');
 
     default: return t('An unknown error occured. Your transaction could not be completed.');
   }
