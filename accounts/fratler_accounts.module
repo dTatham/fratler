@@ -938,6 +938,23 @@ function fratler_account_load_by_name($name) {
 }
 
 /**
+ * Fetch account-id by name.
+ * This should be speedier than loading the full account-object, in case we're simply interested in the account-number.
+ *
+ * @param name
+ *   String with the account name.
+ *
+ * @return
+ *   The corresponding account-ID to the given name or FALSE.
+ */
+function fratler_account_fetch_by_name($name) {
+  if ($name === 0) // No need to query the db.
+    return 0;
+
+  return db_query('SELECT a.aid FROM {fratler_accounts} a WHERE a.name = :name', array(':name' => $name))->fetchField();
+}
+
+/**
  * Save changes to an account (i.e. update the entry).
  * We'll just shove everything to the entity-handler
  *
