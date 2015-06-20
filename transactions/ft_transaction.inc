@@ -147,8 +147,10 @@ function fm_transaction_form($form, &$form_state, $transaction, $type) {
 
   // Display confirm page.
   else {
-    foreach (array_keys($form['tdata']) as $element) 
-      $form['tdata'][$element]['#disabled'] = TRUE;
+    foreach (array_keys($form['tdata']) as $element) {
+      $form['tdata'][$element]['#type'] = 'item';
+      $form['tdata'][$element]['#markup'] = $form['tdata'][$element]['#default_value'];
+    }
 
     $ttypes = array();
     $form['ttype'] = array(
