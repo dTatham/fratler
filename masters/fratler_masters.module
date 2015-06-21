@@ -557,7 +557,7 @@ function _fma_check_mach_name($mach_name) {
 }
 
 /**
- * Implements hook_fm_autocomplete
+ * Implements hook_fac_autocomplete
  * Supplies additional candidates for autocomplete fields.
  *
  * @param string
@@ -656,23 +656,4 @@ function fratler_masters_fac_get_accounts($target = false, $type = null) {
   }
 
   return $matches;
-}
-
-/**
- * API-Description.
- * Implements hook_fm_autocomplete()
- *
- * @param string
- *   A string that's matched against the available MAs.
- *
- * @param direction
- *  The direction in which the transactions goes. Defaults to 'rid'.
- *  If set to sid, it will additionally filter by user-roles and display only those that match the assigned roles.
- *
- * @param type
- *   The transaction-type in question; can be either 'transfer' or 'adjustment'. This applies only if $direction is set to 'sid'.
- *
- */
-function hook_fm_autocomplete($string = '', $direction = 'rid', $type = 'transfer') {
-  return array();
 }

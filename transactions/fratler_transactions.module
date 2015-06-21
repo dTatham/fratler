@@ -34,6 +34,53 @@ function fratler_transactions_menu() {
     'file'    => 'ft_admin.inc',
   );
 
+  $items['admin/config/fratler/transactions/main'] = array(
+    'title'    => 'Transactions',
+    'description'  => 'Configure the transaction entity of the fratler_suite',
+    'page callback'  => 'drupal_get_form',
+    'page arguments' => array('fratler_transactions_admin'),
+    'access arguments' => array('access administration pages'),
+    'type'  => MENU_DEFAULT_LOCAL_TASK,
+    'file'    => 'ft_admin.inc',
+  );
+
+  $items['admin/config/fratler/transactions/ttypes'] = array(
+    'title'    => 'Transaction types',
+    'description'  => 'Configure transaction types for Fratler Transactions',
+    'page callback' => 'ft_ttypes_admin',
+    'access arguments' => array('access administration pages'),
+    'type'  => MENU_LOCAL_TASK,
+    'file'    => 'ft_admin.inc',
+    'weight'  => 99,
+  );
+
+  $items['admin/config/fratler/transactions/ttypes/add'] = array(
+    'title'    => 'Add new Transaction Type',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ft_ttypes_edit', entity_get_controller('fratler_transaction_type')->create()),
+    'access arguments' => array('access administration pages'),
+    'type'  => MENU_LOCAL_ACTION,
+    'file'    => 'ft_admin.inc',
+  );
+
+  $items['admin/config/fratler/transactions/ttypes/%fratler_transaction_type/edit'] = array(
+    'title'    => 'Edit Transaction Type',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ft_ttypes_edit', 5),
+    'access arguments' => array('access administration pages'),
+    'type'  => MENU_CALLBACK,
+    'file'    => 'ft_admin.inc',
+  );
+
+  $items['admin/config/fratler/transactions/ttypes/%fratler_transaction_type/delete'] = array(
+    'title'    => 'Delete Transaction Type',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ft_ttypes_delete', 5),
+    'access arguments' => array('access administration pages'),
+    'type'  => MENU_CALLBACK,
+    'file'    => 'ft_admin.inc',
+  );
+
    $items['fratler/transaction/transfer'] = array(
     'title'    => 'New transfer',
     'description'  => 'Make a new transaction',
@@ -502,8 +549,8 @@ function fratler_transactions_format_row($entity, $format = FMTransactionStyle::
 
   if ($format & FMTransactionStyle::FM_TTYPE)
     $row['ttype'] = array(
-      'data'  => isset($entity->ttype_name) ? $entity->ttype_name : taxonomy_term_load($entity->ttype)->name,
-      'title'  => taxonomy_term_load($entity->ttype)->description,
+      'data'  => isset($entity->ttype_name) ? $entity->ttype_name : fratler_transaction_type_load($entity->ttype)->name,
+      'title'  => fratler_transaction_type_load($entity->ttype)->description,
     );
 
   if ($format & FMTransactionStyle::FM_TXT)
@@ -873,7 +920,7 @@ class FratlerTransactionController
         $entity->txt    = filter_xss($entity->txt, array('br', 'em', 'strong','cite','b','i','u'));
 
         // Attach a field with the transaction type - we'll need it probably
-        $entity->ttype_name   = taxonomy_term_load($entity->ttype)->name;
+        $entity->ttype_name   = fratler_transaction_type_load($entity->ttype)->name;
       }
       return $entities;
     }
@@ -886,6 +933,208 @@ class FratlerTransactionController
     }
   }
 
+/**
+ * FratlerTransactionTypeController extends DrupalDefaultEntityController
+ *
+ * CRUD Interfaces for Transaction Types
+ */
+class FratlerTransactionTypeController
+  extends DrupalDefaultEntityController {
+
+    /**
+     * Create and return a new transaction-entity.
+     */
+    public function create() {
+      $entity = new stdClass();
+      $entity->ttid  = 0;   // Transaction Type-ID.
+      $entity->active = 0;  // Active?
+      $entity->locked = 0;  // Locked type, cannot be edited.
+      $entity->selectable = 0; // Whether this item can be selected during a standard transaction.
+      $entity->category = '';  // The category in which the Transaction Type should appear.
+      $entity->name = '';   // Short name of the Transaction Type.
+      $entity->description = '';    // Name of the Transaction Type.
+
+      return $entity;
+    }
+
+    /**
+     * Save the entity-fields.
+     */
+    public function save($entity) {
+      // Invoke hook_entity_presave().
+      module_invoke_all('ft_ttype_presave', $entity);
+
+      // 'primary_keys' is used to determine whether we're dealing with an update or 
+      // a new entry. So, if the entry already has an ID, we'll specify 'tid' as the key.
+      $primary_keys = $entity->ttid ? 'ttid' : array();
+
+      drupal_write_record('fratler_transactions_ttypes', $entity, $primary_keys);
+
+      // Invoke post-save hook_fm_transaction_update() or hook_fm_transaction_new().
+      module_invoke_all(empty($entity->ttid) ? 'ft_ttype_new' : 'ft_ttype_update', $entity);
+
+      // Clear the static cache
+      $this->resetCache(array($entity->ttid));
+
+      return $entity;
+    }
+
+    public function delete($entity) {
+      $this->delete_multiple(array($entity));
+    }
+
+    /**
+     * Loads the entity and does some cosmetics
+     */
+    public function load($ids = array(), $conditions = array()) {
+      $entities = parent::load($ids, array());
+      foreach ($entities as $entity) {
+        // Clean up the names and localize them (avoid xss etc.).
+        $entity->name = t('@name', array('@name' => check_plain($entity->name)));
+        $entity->description = t('@desc', array('@desc' => check_plain($entity->description)));
+      }
+      return $entities;
+    }
+
+    /**
+     * Transactions are not meant to be deleted at this stage, so this is just a stub
+     */
+    public function delete_multiple($ttypes) {
+      foreach ($ttypes as $ttype) {
+
+        $transaction = db_transaction();
+        try {
+            // Invoke hook_entity_delete()
+            module_invoke_all('entity_delete', $ttype, 'ft_ttype');
+
+          db_delete('fratler_transactions_ttypes')->condition('ttid', $ttype->ttid)->execute();
+        } catch (Exception $e) {
+          $transaction->rollback();
+          watchdog_exception('fratler_transactions', $e);
+          throw $e;
+        }
+        unset($transaction); // Force commit.
+        drupal_set_message(t('Deleted Transaction Type @name.', array('@name' => $ttype->name)));
+      }
+    }
+  }
+
+/**
+ * Load a Transaction Type entity.
+ *
+ * @param ttid
+ *  The Transaction Type ID.
+ *
+ * @param reset
+ *  Whether to reset the entity cache.
+ *
+ * @return
+ *  A fully-loaded Transaction Type object.
+ */
+function fratler_transaction_type_load($ttid = NULL, $reset = FALSE) {
+  $ttids = (isset($ttid) ? array($ttid) : array());
+  $ttype = fratler_transaction_type_load_multiple($ttids, array(), $reset);
+  return $ttype ? reset($ttype) : FALSE;
+}
+
+/**
+ * Load multiple Transaction Type entities.
+ *
+ * @param ttids
+ *  An array holding the Transaction Type IDs.
+ *
+ * @param reset
+ *  Whether to reset the entity cache.
+ *
+ * @return
+ *  An array containing fully-loaded Transaction Type entities.
+ */
+function fratler_transaction_type_load_multiple($ttids = FALSE, $conditions = array(), $reset = FALSE) {
+  return entity_load('fratler_transaction_type', $ttids, $conditions, $reset);
+}
+
+/**
+ * Load Transaction Type by name.
+ *
+ * @param name 
+ *   The name of the Transaction Type.
+ *
+ * @param reset
+ *  Whether to reset the entity cache.
+ *
+ * @return
+ *  A fully-loaded Transaction Type object.
+ */
+function fratler_transaction_type_load_by_name($name, $reset = FALSE) {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'fratler_transaction_type')
+    ->propertyCondition('name', check_plain($name));
+
+  $result = $query->execute();
+
+  if (isset($result['fratler_transaction_type']))
+    return fratler_transaction_type_load_multiple(array_keys($result['fratler_transaction_type']), $reset);
+
+  return FALSE;
+}
+/**
+ * Load Transaction Types by category.
+ *
+ * @param category
+ *   The name of the category.
+ *
+ * @param selectable 
+ *  If set to TRUE, only entities that can be selected by users are returned (will not display automatic transaction types).
+ *  Leave this set to NULL to ignore this filter.
+ *
+ * @param locked
+ *  If set to FALSE, only load unlocked (user-defined) entities.
+ *  Leave this set to NULL to load locked and unlocked entities.
+ *
+ * @param active
+ *  If set to FALSE, inactive entities will be loaded as well.
+ *
+ * @return
+ *  An array containing fully-loaded Transaction Type entities.
+ */
+function fratler_transaction_type_load_by_category($category, $selectable = NULL, $locked = NULL, $active = TRUE) {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'fratler_transaction_type')
+    ->propertyCondition('category', check_plain($category))
+    ->propertyCondition('active', (int)$active);
+
+  if ($selectable !== NULL)
+    $query->propertyCondition('selectable', (int)$selectable);
+  if ($locked !== NULL)
+    $query->propertyCondition('locked', (int)$locked);
+
+  $result = $query->execute();
+
+  if (isset($result['fratler_transaction_type']))
+    return fratler_transaction_type_load_multiple(array_keys($result['fratler_transaction_type']));
+
+  return array();
+}
+
+/**
+ * Wrapper to save a Transaction Type.
+ *
+ * @param $entity
+ *   The fully-populated Fratler Transaction Type Entity.
+ */
+function fratler_transaction_type_save(&$entity) {
+  return entity_get_controller('fratler_transaction_type')->save($entity);
+}
+
+/**
+ * Wrapper to delete a Transaction Type.
+ *
+ * @param $entity
+ *   The fully-populated Fratler Transaction Type Entity.
+ */
+function fratler_transaction_type_delete(&$entity) {
+  return entity_get_controller('fratler_transaction_type')->delete($entity);
+}
 
 function fratler_transactions_entity_info() {
   $info = array();
@@ -904,19 +1153,34 @@ function fratler_transactions_entity_info() {
     'uri callback'    => 'fratler_transaction_uri',
 
     // At this point, we're not fiddling around with the fields.
-    // TODO: assess feasibility of fieldabledness
-    'fieldable'    => false,
+    // TODO: assess feasibility of fieldabledness.
+    'fieldable'    => FALSE,
 
-    // entity_keys tell the controller, which field is used for keys-functions
+    // entity_keys tell the controller, which field is used for keys-functions.
     'entity keys'    => array(
       'id'  => 'tid',
     ),
 
-    // We DO want the transactions to be cached, but not right now (for development-purposes)
-    'static cache'    => true,
+    // We DO want the transactions to be cached, but not right now (for development-purposes).
+    'static cache'    => TRUE,
 
-    // We don't make use of bundles (yet)
+    // We don't make use of bundles (yet).
     'bundles'    => array(),
+  );
+  $info['fratler_transaction_type'] = array(
+    'label' => t('Transaction Type'),
+
+    'controller class' => 'FratlerTransactionTypeController',
+    'base table' => 'fratler_transactions_ttypes',
+    'fieldable' => FALSE,
+
+    'entity keys' => array(
+      'id' => 'ttid',
+      'label' => 'name',
+      'language' => 'language',
+    ),
+    'static cache' => TRUE,
+    'bundles' => array(),
   );
 
   return $info;
@@ -944,17 +1208,19 @@ function fratler_transactions_ft_transaction_dry_run($entity) {
   // Before we start, check the integrity of the balances-db
   // TODO still need a cron-job to keep an eye on the signatures in both databases!
 
-  // Step 1: grab the involved accounts
-  $rid = fratler_account_load($entity->rid);
-  $sid = fratler_account_load($entity->sid);
+  // Step 1: Check if accounts loaded properly.
+  if (!$entity->rid || !($rid = fratler_account_load($entity->rid)))
+    return array(FMErrors::RID_INVALID => 'rid');
+  if ($entity->counter && !($sid = fratler_account_load($entity->sid)))
+    return array(FMErrors::SID_INVALID => 'sid');
 
-  // Step 2: check the signatures of the involved accounts
+  // Step 2: check the signatures of the involved accounts.
   // If the signatures don't match, shit has officially hit the fan.
   if (!$rid->signature_ok)  {
     return array(FMErrors::SIGNATURE_MISMATCH => 'rid');
   }
 
-  if ($sid && !$sid->signature_ok) 
+  if (isset($sid) && !$sid->signature_ok) 
     return array(FMErrors::SIGNATURE_MISMATCH => 'sid');
 
 
@@ -992,8 +1258,13 @@ function fratler_transactions_ft_transaction_dry_run($entity) {
     }
   }
 
+<<<<<<< HEAD
   // If the amount is invalid or <= 0 and we're not adjusting.
   if (!is_numeric($entity->amount) || ($entity->amount <= 0 && $entity->counter) || (abs($entity->amount) < 0.01))
+=======
+  // If the amount is invalid or <= 0 and we're not adjusting
+  if (!is_numeric($entity->amount) || ($entity->amount <= 0 && $entity->counter) || abs($entity->amount) < 0.01)
+>>>>>>> devel
     $errors[FMErrors::AMOUNT_INVALID] = 'amount';
 
   // Check, if the amount exceeds the transaction-value and if the user's allowed to exceed it
@@ -1003,7 +1274,7 @@ function fratler_transactions_ft_transaction_dry_run($entity) {
     $errors[FMErrors::AMOUNT_OVER_MAX] = 'amount';
 
   // Check the transaction-type for a pulse
-  if (!taxonomy_term_load($entity->ttype))
+  if ($entity->ttype && !fratler_transaction_type_load($entity->ttype))
     $errors[FMErrors::TTYPE_INVALID] = 'ttype';
 
   // Check for overdraw
@@ -1061,7 +1332,9 @@ class FMErrors {
   const RID_OVERDRAW_EX  = 24;  // The adjustment will exceed the recipient's account
   const OWN_OVERDRAW_EX  = 25;  // The transaction will exceed the user's account
 
-  const TTYPE_INVALID  = 30;  // The transaction-type is invalid
+  const SID_INVALID  = 30;  // The transaction-type is invalid
+  const RID_INVALID  = 31;  // The transaction-type is invalid
+  const TTYPE_INVALID  = 32;  // The transaction-type is invalid
 
   const SIGNATURE_MISMATCH = 666; // Congratulations, you're fucked!
 
@@ -1098,6 +1371,8 @@ function ft_get_error($error) {
     case FMErrors::OWN_OVERDRAW:    return t('This transaction will overdraw your account.');
     case FMErrors::OWN_OVERDRAW_EX:    return t('This transaction will exceed your overdraw-limit.');
 
+    case FMErrors::SID_INVALID:    return t('The sender is invalid.');
+    case FMErrors::RID_INVALID:    return t('The recipient is invalid.');
     case FMErrors::TTYPE_INVALID:    return t('The transaction-type is invalid.');
 
     case FMErrors::SIGNATURE_MISMATCH:  return t('Signature mismatch detected. Please contact an administrator immediately!');

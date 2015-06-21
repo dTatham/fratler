@@ -4,7 +4,6 @@ core = 7.x
 package = fratler_suite
 #dependencies = <somemod>
 dependencies[] = fratler_accounts 
-dependencies[] = taxonomy
 
 configure = admin/config/fratler/transactions
 
