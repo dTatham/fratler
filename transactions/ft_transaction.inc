@@ -2,51 +2,74 @@
 // vim:fenc=utf-8:ft=php:ai:si:ts=2:sw=2:et:nu:fdm=indent:fdn=1:
 
 /*
- * Helper-function to map the results of taxonomy_get_children to an
- * assoc-array, that can be handled by #options
+ * Helper-function to map the ttypes in the proper form.
  *
- * @param parent
- *   the parent term-id to be loaded
+ * @param ttypes
+ *   An array of ttype-entities.
  *
  * @returns
- *   An associative array with the term-id as key '<short> (<desc>)' as value
+ *   An associative array with the term-id as key and '<short> (<desc>)' as value.
  */
-function _fm_map_ttypes($parent) {
-  $children = taxonomy_get_children($parent);
-  $bunker = array();
-  foreach ($children as $child)
-    $bunker[$child->tid] = $child->name . ' (' . $child->description . ')';
+function _ft_map_ttypes($ttypes) {
+  $mapped = array();
 
-  return $bunker;
+  foreach ($ttypes as $ttype)
+    $mapped[$ttype->ttid] = t('@name (@description)', array('@name' => t($ttype->name), '@description' => t($ttype->description)));
+
+  asort($mapped);
+
+  return $mapped;
 
 }
 
 /**
  * Displays the transaction / adjustment form
  *
- * @param entity
+ * @param transaction
  *   The entity that will serve as basis for this purpose.
  *
  * @param type
  *   Either 'transfer' or 'adjustment' (parsed from the URI)
  */
-function fm_transaction_form($form, &$form_state, $entity, $type) {
-  drupal_set_title($type == 'transfer' ? t('New transfer') : t('New adjustment'), PASS_THROUGH);
+function fm_transaction_form($form, &$form_state, $transaction, $type) {
   global $user;
+
+  drupal_set_title($type == 'transfer' ? t('New transfer') : t('New adjustment'), PASS_THROUGH);
 
   // Call me paranoid...
   $type = check_plain($type);
 
   // Since the transfer-types are grabbed through variable_get, there're exactly 2 types of transactions we can accept.
-  if (!is_object($entity) || ($type != 'transfer' && $type != 'adjustment'))
+  if (!is_object($transaction) || ($type != 'transfer' && $type != 'adjustment'))
     return drupal_not_found();
-  // If we're just adjusting, we need no counter-balance
-  if ($type == 'adjustment')
-    $entity->counter = false;
 
-  // Display the normal form
-  if(!isset($form_state['storage']['confirm'])) {
-    // Grab all the accounts the user can transfer from
+  // In case we are in step 2 (verification), we need to retrieve the existing transaction-entity:
+  if (isset($form_state['values']['fratler_transaction']))
+    $transaction = &$form_state['values']['fratler_transaction'];
+
+  else {
+    // Snap the transaction-entity into the form to prevent fiddling around with data in the 2nd step.
+    $form['fratler_transaction'] = array(  // Entity-Container - no touching!
+      '#type'    => 'value',
+      '#value'  => &$transaction,
+    );
+    // If we're just adjusting, we need no counter-balance
+    if ($type == 'adjustment')
+      $transaction->counter = false;
+  }
+
+  // Here we go.
+  
+  // Sender-Id (sid):
+  // By default, this is the current user. However, some users may either transfer from other accounts,
+  // or other modules (Master Accounts) may grant them permission to transfer from them.
+  //
+  // This is only relevant if we are transferring, adjustments have a sid of 0.
+  if (!$transaction->counter)
+    $transaction->sid = 0;
+
+  else {
+    // Grab all the accounts the user can transfer from:
     $sids = array();
     foreach  (module_implements('fac_get_accounts') as $module)
       foreach (module_invoke($module, 'fac_get_accounts', $user, $type) as $account)
@@ -55,113 +78,114 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
     // Make sure user-accounts show up first
     natcasesort($sids);
 
-    if (!$entity->counter)    // Don't need the sid when adjusting
-      $entity->sid = 0;
-    else if (count($sids) == 1 || fratler_accounts_access(FAcPerm::TRANSFER_ALL))
-      $form['sid'] = array(
-        '#type'    => fratler_accounts_access(FacPerm::TRANSFER_ALL) ? 'textfield' : 'value',
-        '#title'  => t('Sender'),
-        '#required'  => true,
-        '#default_value' => $sids[format_username($user)],
-        '#autocomplete_path' => 'fratler/fac_autocomplete/sid/' . $type,
-      );
-     else 
-      $form['sid'] = array(
-        '#type'    => 'select',
-        '#title'  => t('Sender'),
-        '#options'  => $sids,
-        '#required'  => true,
-        '#default_value' => isset($sids[format_username($user)]) ? format_username($user) : 0,  
-        '#empty_option' => t('- Select Account -'),
-        '#empty_value'  => 0,
-      );
+    $form['tdata']['sid'] = array(
+      '#type' => fratler_accounts_access(FAcPerm::TRANSFER_ALL) ? 'textfield' : (count($sids) > 1 ? 'select' : 'value'),
+      '#title' => t('Sender'),
+      '#required' => TRUE,
+      // TODO: Let's see how well this plays with usernames that are changed by format_username().
+      '#default_value' => isset($sids[format_username($user)]) ? format_username($user) : '', 
+      '#autocomplete_path' => 'fratler/fac_autocomplete/sid/' . $type,
 
-    $form['rid'] = array(
-      '#type'    => 'textfield',
-      '#title'  => $entity->counter ? t('Recipient') : t('Account', array(), array('context' => 'accounting')),
-      '#required'  => true,
-      '#default_value' => ($entity->tid <> 0) ? fratler_account_load($entity->rid)->name : (!$entity->counter && !fratler_accounts_access(FAcPerm::ADJUST_OTHER) ? $sids[$user->uid]->name : ''),  // TODO: finalize this one once dev is complete
-      '#disabled'  => (!$entity->counter && !fratler_accounts_access(FAcPerm::ADJUST_OTHER)) ? true : false,
-      '#autocomplete_path' => 'fratler/fac_autocomplete/rid/' . $type,
+      '#empty_option' => t('- Select Account -'),
+      '#empty_value'  => 0,
+      '#options' => $sids,
+    );
+  }
+
+  // Recipient-Id (rid):
+  // This is quite straight-forward. Every active account with the appropriate permission can receive transactions.
+  // In case we adjust, we throw in a quick check what the current user may do and fill in fields accordingly.
+  $form['tdata']['rid'] = array(
+    '#type' => 'textfield',
+    '#title'  => $transaction->counter ? t('Recipient') : t('Account', array(), array('context' => 'accounting')),
+    '#required' => TRUE,
+    '#default_value' => ($transaction->rid <> 0) ? fratler_account_load($transaction->rid)->name : '',
+    '#autocomplete_path' => 'fratler/fac_autocomplete/rid/' . $type,
+    '#disabled'  => !$transaction->counter && !fratler_accounts_access(FAcPerm::ADJUST_OTHER),
+
+  );
+
+  // Amount:
+  // Well, guess what this is?!
+  $form['tdata']['amount'] = array(
+    '#type'    => 'textfield',
+    '#title'  => t('Amount'),
+    '#required'  => TRUE,
+    '#field_prefix' => _fac_cs_psfix(TRUE),
+    '#field_suffix' => _fac_cs_psfix(FALSE),
+    '#default_value' => _fac_format_number($transaction->amount),
+    '#size'    => 5,
+    '#maxlength'  => 7,
+  );
+
+  // Text (txt):
+  // Let's leave a friendly memo with the transaction.
+  $form['tdata']['txt']   = array(
+    '#type'    => 'textfield',
+    '#title'  => t('Transaction-Memo'),
+    '#required'  => TRUE,
+    '#default_value' => $transaction->txt,
+  );
+
+  // Display action buttons for first round.
+  if (!isset($form_state['storage']['confirm'])) {
+    // Action-Buttons for first round.
+    $form['actions'] = array(
+      '#type' => 'actions',
+      'submit' => array(
+        '#type' => 'submit',
+        '#value' => t('Check'),
+        '#limit_validation_errors' => array(array('tdata')),
+      ),
+      'cancel' => array(
+        '#markup' => l(t('Cancel'), '/fratler/account'),
+      ),
     );
 
-    $form['amount'] = array(
-      '#type'    => 'textfield',
-      '#title'  => t('Amount'),
-      '#required'  => true,
-      '#field_prefix' => _fac_cs_psfix(true),
-      '#field_suffix' => _fac_cs_psfix(false),
-      '#default_value' => _fac_format_number($entity->amount),
-      '#size'    => 5,
-      '#maxlenght'  => 7,
-    );
+  return $form;
+  }
 
-    $form['txt']   = array(
-      '#type'    => 'textfield',
-      '#title'  => t('Transaction-Memo'),
-      '#required'  => true,
-      '#default_value' => $entity->txt,
-    );
+  // Display confirm page.
+  else {
+    foreach (array_keys($form['tdata']) as $element) {
+      $form['tdata'][$element]['#type'] = 'item';
+      $form['tdata'][$element]['#markup'] = $form['tdata'][$element]['#default_value'];
+    }
 
+    $ttypes = array();
     $form['ttype'] = array(
-      '#type'    => (count(taxonomy_get_children(variable_get('ft_vocab_' . $type))) <= 1) ? 'value' : 'select',
       '#title'  => t('Transaction-Type'),
       '#required'  => true,
-      '#options'  => _fm_map_ttypes(variable_get('ft_vocab_' . $type)),
-      '#default_value' => ($entity->ttype <> 0) ? $entity->ttype : ($type == 'transfer') ? variable_get('ft_vocab_transfer_term') : null,
-      '#empty_option'  => t('- @empty_option -', array('@empty_option' => taxonomy_term_load(variable_get('ft_vocab_' . $type))->name)),
     );
 
-    $form['fratler_transaction'] = array(  // Entity-Container - no touching!
-      '#type'    => 'value',
-      '#value'  => $entity,
-    );
-
-    $form['submit'] = array(
-      '#type'    => 'submit',
-      '#value'  => t('Submit'),
-      '#weight'  => 100,    // Probably unnecessary, but hey
-    );
-
-    return $form;
-  } 
-  // Display confirm-page
-  else {
-    $form['fratler_transaction'] = array(  // Entity-Container - no touching!
-      '#type'    => 'value',
-      '#value'  => $entity,
-    );
-
-    $rid = fratler_account_load($entity->rid);
-    $entity->balance_rid = $rid->balance+$entity->amount;
-    if ($entity->counter) {
-      $sid = fratler_account_load($entity->sid);
-      $entity->balance_sid = $sid->balance-$entity->amount;
+    if ($type == 'transfer') {
+      $form['ttype']['#empty_option']  = t('- Transfers -');
+      $form['ttype']['#default_value'] = variable_get('ft_default_transfer');
+      $ttypes = fratler_transaction_type_load_by_category($type, TRUE);
     }
-    // We're gonna hijack this for a moment
-#    $entity->balance = $entity->counter ? $sid->balance-$entity->amount : $rid->balance+$entity->amount;
+    else {
+      if ($transaction->amount > 0) {
+        $form['ttype']['#empty_option'] = t('- Deposits -');
+        $form['ttype']['#default_value'] = variable_get('ft_default_deposit');
+        $ttypes = fratler_transaction_type_load_by_category('deposit', TRUE);
+      }
+      else {
+        $form['ttype']['#empty_option'] = t('- Withdrawals -');
+        $form['ttype']['#default_value'] = variable_get('ft_default_withdrawal');
+        $ttypes = fratler_transaction_type_load_by_category('withdrawal', TRUE);
+      }
+    }
 
-    // Draw me like one of your French tables...
-    $style = FMTransactionStyle::FM_DEFAULT ^ FMTransactionStyle::FM_TID ^ FMTransactionStyle::FM_SIGNATURE;
-    if (!$entity->counter)
-      $style ^= FMTransactionStyle::FM_BAL_SID;
-    $markup = fratler_transaction_display($entity, $style);
+    $form['ttype']['#type'] = (count($ttypes) <= 1) ? 'value' : 'select';
+    $form['ttype']['#options'] = _ft_map_ttypes($ttypes);
 
-    // Calculate the new acount-balance
-    $entity->balance = fratler_account_get_balance($entity->rid) + $entity->amount;
-
-
-    $form['markup'] = array(
-      '#markup'  => $markup,
-    );
     $form['create_new'] = array(
       '#type'    => 'checkbox',
       '#title'  => t('Create new transaction after this one.'),
       '#default_value' => 0,
     );
 
-    return confirm_form($form, t('Are you sure you want to proceed?'), isset($_GET['destination']) ? $_GET['destination'] : 'fratler/transaction/' . $type, '', t('Proceed'));
-
+    return confirm_form($form, t('Are you sure you want to proceed?'), 'fratler/transaction/' . $type, format_plural(count($ttypes), 'Please verify your input.', 'Please verify your input and select a transaction-type.'), t('Proceed'));
   }
 
 
@@ -170,92 +194,76 @@ function fm_transaction_form($form, &$form_state, $entity, $type) {
 function fm_transaction_form_validate($form, &$form_state) {
   global $user;
 
-  $entity = $form_state['values']['fratler_transaction'];
-  if (!is_object($entity)) {
-    form_set_error(null, t('Something just went horribly wrong. Please panic now.'));
-    return;
-  }
+  // Retrieve the transaction.
+  $transaction = &$form_state['values']['fratler_transaction'];
 
-  // Since the only thing present in the confirm-page is the entity itself, we only need to run validations once.
+  // We need to do this only once for the original data.
   if (isset($form_state['storage']['confirm'])) {
-    if (!is_numeric($form_state['values']['create_new']))
-      form_set_error('create_new', t('Invalid value.'));
-    return;
-  }
+    $transaction->ttype = check_plain($form_state['values']['ttype']);
+    form_set_value($form['fratler_transaction'], $transaction, $form_state);
 
-  // Sender is only interesting, if we're transferring
-  if ($entity->counter) {
-    $sid = fratler_account_load_by_name(check_plain($form_state['values']['sid']));
-    if (!$sid)
-      form_set_error('sid', t('@account invalid.', array('@account' => $form['sid']['#title'])));
-    else
-      $entity->sid = $sid->aid;
-  } 
-  else
-    $entity->sid = 0;  // Juuuust in case...
-  
-  $rid = fratler_account_load_by_name(check_plain($form_state['values']['rid']));
-  if (!$rid)
-    form_set_error('rid', t('@account invalid.', array('@account' => $form['rid']['#title'])));
-  else
-    $entity->rid = $rid->aid;
-
-  // If we're adjusting or someone is making a transaction in someone else's name, 
-  // set the initiator-ID (iid).
-  if (!$entity->counter || $entity->sid != $user->uid)
-    $entity->iid = $user->uid;
-
-  // Run sanity checks on the amount.
-  $entity->amount = _fac_parse_number(check_plain($form_state['values']['amount']));
-  if (empty($entity->amount)) {
-    form_set_error('amount', t('Amount invalid.'));
-    return;
-  }
-
-
-  $entity->ttype = check_plain($form_state['values']['ttype']);
-
-  // Vet the transaction-memo
-  $entity->txt = filter_xss($form_state['values']['txt'], array('em', 'strong','cite','b','i','u'));
-
-  // Set the timestamp
-  $entity->tstamp = time();
-
-  // Calculate the new acount-balance
-  $entity->balance = fratler_account_get_balance($entity->rid) + $entity->amount;
-
-  // Do a dry-run on the transaction, to see, if it will go through
-  if (!count(form_get_errors())) {
     foreach (module_implements('ft_transaction_dry_run') as $module) {
-      foreach (module_invoke($module, 'ft_transaction_dry_run', $entity) as $error => $field)
+      foreach (module_invoke($module, 'ft_transaction_dry_run', $transaction) as $error => $field)
         form_set_error($field, ft_get_error($error));
     }
+
+    // Only if the dry-run was successful: greenlight the transaction.
+    if (empty(form_get_errors()))
+      $transaction->signature_ok = TRUE;
+
+    return;
   }
 
-  // Only if the dry-run was successful: greenlight the transaction.
-  if (empty(form_get_errors()))
-    $entity->signature_ok = TRUE;
+  // Fetch the corresponding account-ids.
+  if (isset($form_state['values']['sid']))
+    $transaction->sid = fratler_account_fetch_by_name(check_plain($form_state['values']['sid']));
+  $transaction->rid = fratler_account_fetch_by_name(check_plain($form_state['values']['rid']));
 
-  // Save up the entity
-  form_set_value($form['fratler_transaction'], $entity, $form_state);
+  // Parse the amount.
+  // Make it look pretty to avoid confusion with decimal / thousands sep
+  $transaction->amount = _fac_parse_number(check_plain($form_state['values']['amount']));
+  form_set_value($form['tdata']['amount'], _fac_format_number($transaction->amount), $form_state);
+
+  // Vet the transaction-memo.
+  $transaction->txt = filter_xss($form_state['values']['txt'], array('em', 'strong','cite','b','i','u'));
+
+  // Internal stuff:
+  // If this transaction is only initiated by the user, set the initiator-id (iid):
+  if ($transaction->sid != $user->uid)
+    $transaction->iid = $user->uid;
+
+  // Set the timestamp.
+  $transaction->tstamp = time();
+
+  // Calculate the new account balance:
+  $transaction->balance = fratler_account_get_balance($transaction->rid) + $transaction->amount;
+
+  form_set_value($form['fratler_transaction'], $transaction, $form_state);
+
+  foreach (module_implements('ft_transaction_dry_run') as $module) {
+    foreach (module_invoke($module, 'ft_transaction_dry_run', $transaction) as $error => $field)
+      form_set_error($field, ft_get_error($error));
+  }
+
+  if (empty(form_get_errors())) {
+    $form_state['rebuild'] = TRUE;
+    $form_state['storage']['confirm'] = TRUE;
+  }
+
+  return;
 }
 
 function fm_transaction_form_submit($form, &$form_state) {
-  // Issue a rebuild-order to display the confirm-Page
-  if (!isset($form_state['storage']['confirm'])) {
-    $form_state['storage']['confirm'] = true;
-    $form_state['rebuild'] = true;
-    return;
-  }
-
-  $entity = $form_state['values']['fratler_transaction'];
+  $transaction = $form_state['values']['fratler_transaction'];
 
   // TODO: check database for existing signature in case some genius hit the back-button
 
-  $entity = fratler_transaction_save($entity);
+  $transaction = fratler_transaction_save($transaction);
 
-  if (!$form_state['values']['create_new'])
-    $form_state['redirect'] = 'fratler/transaction/' . $entity->tid;
- 
+  if (!$form_state['values']['create_new']) {
+    $form_state['redirect'] = 'fratler/transaction/' . $transaction->tid;
+  }
+  else
+    drupal_set_message(t('Transaction completed successfully.'));
 }
 

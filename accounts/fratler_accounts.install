@@ -6,16 +6,16 @@ function fratler_accounts_schema() {
     'fields' => array(
       'aid'  => array(
         'type'    => 'int',
-        'not null'  => true,
-        'description'  => 'The account-ID; Master-Accounts have an aid < 0',
+        'not null'  => TRUE,
+        'description'  => 'The account-ID; Master-Accounts have an aid < 0.',
         ),
       'balance' => array(
         'type'    => 'numeric',
         'precision'  => 15,
         'scale'    => 2,
-        'not null'  => true,
+        'not null'  => TRUE,
         'default'  => 0,
-        'description'  => 'The current balance of the given aid',
+        'description'  => 'The current balance of the given aid.',
         ),
       'active' => array(
         'type' => 'int',
@@ -35,23 +35,23 @@ function fratler_accounts_schema() {
       'name' => array(
         'type'    => 'varchar',
         'length'  => 255,
-        'description'  => 'The account name (to reduce queries)',
+        'description'  => 'The account name (to reduce queries).',
       ),
       'tstamp' => array(
         'type'    => 'int',
-        'description'  => 'The timestamp of the last transaction',
+        'description'  => 'The timestamp of the last transaction.',
         ),
       'signature' => array(
         'type'    => 'blob',
-        'description'  => 'The binary representation of the balance-signature',
+        'description'  => 'The binary representation of the balance-signature.',
         ),
       'last_trans' => array(
         'type'    => 'int',
-        'description'  => 'The last transaction-ID that affected the balance',
+        'description'  => 'The last transaction-ID that affected the balance.',
         ),
       ),
     'primary key'  => array('aid'),
-    'description'  => 'Holds all account-balances',
+    'description'  => 'Holds all account-balances.',
   ));
 }
 
@@ -59,6 +59,27 @@ function fratler_accounts_install() {
   // Some basic settings
   variable_set('fac_locale', 'C');
   variable_set('fac_pager', 10);
+}
+
+/**
+ * Implements hook_requirements()
+ *
+ * Since we require PHP's mod_intl, check if it's enabled and throw a fit if not.
+ */
+function fratler_accounts_requirements($phase) {
+  global $language;
+
+  if ($phase == 'install' && !extension_loaded('intl')) {
+    return array('fratler_accounts_mod_intl' => array(
+      'title' => t('mod_intl required'),
+      'description' => t('The Fratler Suite requires PHP mod_intl to be loaded. Please make sure it is enabled in your configuration. For more information, see !php.', 
+        array('!php' => l('http://php.net/manual/' . $language->language . '/book.intl.php', 'http://php.net/manual/' . $language->language . '/book.intl.php'))),
+      'severity' => REQUIREMENT_ERROR,
+    ),
+    );
+  }
+
+  return array();
 }
 
 function fratler_accounts_enable() {
