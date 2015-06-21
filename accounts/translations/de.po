@@ -1,297 +1,188 @@
-# $Id$
-#
-# German translation of Drupal (general)
-# Copyright YEAR NAME <EMAIL@ADDRESS>
-# Generated from files:
-#  fac_admin.inc: n/a
-#  fratler_accounts.module: n/a
-#  fratler_accounts.info: n/a
+# German translation of Fratler Accounts (7.x-1.2)
+# Copyright (c) 2015 by the German translation team
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2014-05-31 15:53+0100\n"
-"PO-Revision-Date: 2014-05-31 14:57+0200\n"
-"Last-Translator: Daniel aka Mushu <delta@fratler.de>\n"
-"Language-Team: German <EMAIL@ADDRESS>\n"
-"Language: de\n"
+"Project-Id-Version: Fratler Accounts (7.x-1.2)\n"
+"POT-Creation-Date: 2015-06-21 15:19+0100\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: German\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Pootle 2.5.1.1\n"
-"X-POOTLE-MTIME: 1401544638.000000\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
 
-#: fac_admin.inc:19
 msgid "General Settings"
 msgstr "Allgemeine Einstellungen"
-
-#: fac_admin.inc:25
 msgid "Used locale"
 msgstr "Gebietsschema"
-
-#: fac_admin.inc:29
-msgid "Please enter a locale-String you would like to use to format the amounts (e.g. en_US or de_DE).<br />Enter \"C\" as fallback."
+msgid ""
+"Please enter a locale-String you would like to use to format the "
+"amounts (e.g. en_US or de_DE).<br />Enter \"C\" as fallback."
 msgstr ""
 "Bitte ein POSIX Gebietsschema eingeben, mit dem Beträge formatiert "
 "werden sollen (z.B. en_US oder de_DE).<br />\"C\" als Provisorium "
 "eingeben."
-
-#: fac_admin.inc:31
 msgid "Currently using \"@locale\" (example: @num)"
 msgstr "Aktuell wird \"@locale\" verwendet (Beispiel: @num)."
-
-#: fac_admin.inc:37
 msgid "Statement entries per page"
 msgstr "Transaktionen pro Seite"
-
-#: fac_admin.inc:38
-msgid "How many statement records would you like to display per page?<br />Enter \"0\" to disable pagination."
+msgid ""
+"How many statement records would you like to display per page?<br "
+"/>Enter \"0\" to disable pagination."
 msgstr ""
 "Wie viele Transaktionen sollen pro Seite angezeigt werden?<br />Auf "
 "\"0\" setzen, um alles auf einer Seite anzuzeigen."
-
-#: fac_admin.inc:47
 msgid "Rebuild Account table"
 msgstr "Konten-Tabelle aktualisieren"
-
-#: fac_admin.inc:48
-msgid "After changing !permissions, please remember to !rebuild the internal permissions table."
+msgid ""
+"After changing !permissions, please remember to !rebuild the internal "
+"permissions table."
 msgstr ""
 "Bitte nicht vergessen, die interne Berechtigungstabelle zu !rebuild, "
 "nachdem die !permissions geändert wurden."
-
-#: fac_admin.inc:49
 msgid "permissions"
 msgstr "Berechtigungen"
-
-#: fac_admin.inc:50
 msgid "rebuild"
 msgstr "aktualisieren"
-
-#: fac_admin.inc:62
 msgid "Invalid locale."
 msgstr "Ungültiges Gebietsschema."
-
-#: fac_admin.inc:64
 msgid "Invalid entries per page setting"
 msgstr "Ungültige Angabe der Transaktionen pro Seite."
-
-#: fratler_accounts.module:61
 msgid "Display own statement"
 msgstr "Eigenen Kontoauszug anzeigen"
-
-#: fratler_accounts.module:66
 msgid "Display all statements"
 msgstr "Alle Transaktionen anzeigen"
-
-#: fratler_accounts.module:71
 msgid "Display all accounts"
 msgstr "Alle Konten anzeigen"
-
-#: fratler_accounts.module:72
 msgid "Allow users to display all account-balances."
 msgstr "Benutzer können alle Kontostände einsehen."
-
-#: fratler_accounts.module:78
 msgid "Receive transfers"
 msgstr "Überweisungen erhalten"
-
-#: fratler_accounts.module:83
 msgid "Transfer from own account"
 msgstr "Überweisungen vom eigenen Konto"
-
-#: fratler_accounts.module:88
 msgid "Transfer from all accounts"
 msgstr "Überweisungen von allen Konten"
-
-#: fratler_accounts.module:93
 msgid "Adjust other accounts"
 msgstr "Andere Konten anpassen"
-
-#: fratler_accounts.module:94
 msgid "Users may adjust any account but their own."
 msgstr "Benutzer können alle Konten anpassen außer den eigenen."
-
-#: fratler_accounts.module:99
 msgid "Adjust own account"
 msgstr "Eigenes Konto anpassen"
-
-#: fratler_accounts.module:100
 msgid "Users may adjust their own account."
 msgstr "Benutzer können ihre eigenen Konten anpassen."
-
-#: fratler_accounts.module:106
 msgid "Overdraw accounts"
 msgstr "Konten überziehen"
-
-#: fratler_accounts.module:107
 msgid "Users may overdraw accounts up to the system wide limit."
 msgstr "Benutzer können Konten bis zum systemweiten Limit überziehen."
-
-#: fratler_accounts.module:112
 msgid "Bypass account-bar"
 msgstr "Kontosperre umgehen"
-
-#: fratler_accounts.module:113
-msgid "Users may conduct transactions with any account that isn't blocked by the system (regardless of the account's permission)."
+msgid ""
+"Users may conduct transactions with any account that isn't blocked by "
+"the system (regardless of the account's permission)."
 msgstr ""
 "Benutzer können Transaktionen mit jedem Konto durchführen, das nicht "
 "systemseitig gesperrt ist (unabhängig von anderen Berechtigungen)."
-
-#: fratler_accounts.module:118
 msgid "Exceed transaction limit"
 msgstr "Transaktionslimit überschreiten"
-
-#: fratler_accounts.module:123
 msgid "Exceed overdraw limit"
 msgstr "Überziehungslimit überschreiten"
-
-#: fratler_accounts.module:362
 msgid "Rebuilding Fratler Accounts"
 msgstr "Aktualisiere Fratler-Konten"
-
-#: fratler_accounts.module:363
 msgid "Processing account @current of @total."
 msgstr "Bearbeite Nr. @current von insgesamt @total."
-
-#: fratler_accounts.module:410
 msgid "Initializing."
 msgstr "Initialisierung."
-
-#: fratler_accounts.module:431
 msgid "Processing @account."
 msgstr "@account wird bearbeitet."
-
-#: fratler_accounts.module:444;325
 msgid "All accounts"
 msgstr "Alle Konten"
-
-#: fratler_accounts.module:447
 msgid "My accounts"
 msgstr "Meine Konten"
-
-#: fratler_accounts.module:447
 msgid "Account overview: @name"
 msgstr "Kontoübersicht: @name"
-
-#: fratler_accounts.module:488
 msgid "-----"
 msgstr "-----"
-
-#: fratler_accounts.module:499
 msgctxt "accounting"
 msgid "Account"
-msgstr "Konto"
-
-#: fratler_accounts.module:499
+msgstr "Benutzerkonto"
 msgid "Balance"
 msgstr "Kontostand"
-
-#: fratler_accounts.module:499
 msgid "Last transaction"
 msgstr "Letzte Transaktion"
-
-#: fratler_accounts.module:499
 msgid "Active"
 msgstr "Aktiv"
-
-#: fratler_accounts.module:499
 msgid "Blocked"
 msgstr "Gesperrt"
-
-#: fratler_accounts.module:499
 msgid "Fingerprint"
 msgstr "Fingerabdruck"
-
-#: fratler_accounts.module:502
 msgid "No accounts available."
 msgstr "Keine Konten verfügbar."
-
-#: fratler_accounts.module:584
-msgid "An error occured while verifying the signature of the account !name; please contact an admin immediately."
+msgid ""
+"An error occured while verifying the signature of the account !name; "
+"please contact an admin immediately."
 msgstr ""
-"Beim Überprüfen der Signatur des Kontos !name ist ein Fehler aufgetreten; "
-"bitte umgehend einen Administrator kontaktieren."
-
-#: fratler_accounts.module:598
-msgid "An error occured while verifying the signature for transaction #!tid. Involved accounts were locked to avoid further corruption. Please contact an admin immediately."
+"Beim Überprüfen der Signatur des Kontos !name ist ein Fehler "
+"aufgetreten; bitte umgehend einen Administrator kontaktieren."
+msgid ""
+"An error occured while verifying the signature for transaction #!tid. "
+"Involved accounts were locked to avoid further corruption. Please "
+"contact an admin immediately."
 msgstr ""
 "Beim Überprüfen der Signatur der Transaktion #!tid ist ein Fehler "
-"aufgetreten. Die betroffenen Konten wurden gesperrt, um weitere Schäden zu "
-"verhindern. Bitte umgehend einen Administrator kontaktieren."
-
-#: fratler_accounts.module:714
+"aufgetreten. Die betroffenen Konten wurden gesperrt, um weitere "
+"Schäden zu verhindern. Bitte umgehend einen Administrator "
+"kontaktieren."
 msgid "N/A"
 msgstr "n. v."
-
-#: fratler_accounts.module:748
-msgid "Signature of account !account was corrupted. Changes were saved, but the signature was NOT updated. The account has been blocked to prevent further corruption."
+msgid ""
+"Signature of account !account was corrupted. Changes were saved, but "
+"the signature was NOT updated. The account has been blocked to prevent "
+"further corruption."
 msgstr ""
 "Die Signatur des Kontos !account ist beschädigt. Die Änderungen "
 "wurden gespeichert, aber die Signatur wurde NICHT aktualisiert. Das "
 "Konto wurde blockiert, um weitere Schäden zu verhindern."
-
-#: fratler_accounts.module:957;296
 msgid "Fratler Account"
 msgstr "Fratler-Konto"
-
-#: fratler_accounts.module:398
 msgid "Created one Transaction Account."
 msgid_plural "Created @count Transaction Accounts."
 msgstr[0] "Ein Transaktionskonto wurde erstellt."
 msgstr[1] "@count Transaktionskonten wurden erstellt."
-
-#: fratler_accounts.module:399
 msgid "Updated one Transaction Account."
 msgid_plural "Updated @count Transaction Accounts."
 msgstr[0] "Ein Transaktionskonto wurde aktualisiert."
 msgstr[1] "@count Transaktionskonten wurden aktualisiert."
-
-#: fratler_accounts.module:269
 msgid "Fratler Suite"
 msgstr "Fratler Suite"
-
-#: fratler_accounts.module:270
 msgid "Configure the fratler_suite"
 msgstr "fratler_suite konfigurieren"
-
-#: fratler_accounts.module:277 fratler_accounts.info:0
 msgid "Fratler Accounts"
 msgstr "Fratler-Konten"
-
-#: fratler_accounts.module:278
 msgid "Configure the bookkeeping entity of the fratler_suite"
 msgstr "Die Buchhaltungseinheit der fratler_suite konfigurieren."
-
-#: fratler_accounts.module:286;287
 msgid "Recreate user accounts"
 msgstr "Konten wiederherstellen"
-
-#: fratler_accounts.module:297
 msgid "Account overview, transfers"
 msgstr "Kontenübersicht, Transaktionen"
-
-#: fratler_accounts.module:305
 msgid "Overview"
 msgstr "Übersicht"
-
-#: fratler_accounts.module:306;313
 msgid "Display account balances"
 msgstr "Kontostände anzeigen"
-
-#: fratler_accounts.module:326
 msgid "Display all transactions"
 msgstr "Alle Transaktionen anzeigen"
-
-#: fratler_accounts.module:340
 msgid "User autocomplete"
 msgstr "Auto-Vervollständigen von Benutzernamen"
-
-#: fratler_accounts.info:0
+msgid "mod_intl required"
+msgstr "mod_intl benötigt"
+msgid ""
+"The Fratler Suite requires PHP mod_intl to be loaded. Please make sure "
+"it is enabled in your configuration. For more information, see !php."
+msgstr ""
+"Die Fratler Suite benötigt das PHP-Modul mod_intl. Bitte stellen Sie "
+"sicher, dass es in der Konfiguration aktiviert wurde. Mehr "
+"Informationen unter !php."
 msgid "Simple bookkeping for simple people"
 msgstr "Simple Buchhaltung für normalgebliebene Menschen"
-
-#: fratler_accounts.info:0
 msgid "fratler_suite"
 msgstr "fratler_suite"

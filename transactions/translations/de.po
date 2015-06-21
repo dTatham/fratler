@@ -1,495 +1,356 @@
-# $Id$
+# German translation of Fratler Transactions (7.x-1.2)
+# Copyright (c) 2015 by the German translation team
 #
-# German translation of Drupal (general)
-# Copyright YEAR NAME <EMAIL@ADDRESS>
-# Generated from files:
-#  ft_admin.inc: n/a
-#  fratler_transactions.install: n/a
-#  ft_transaction.inc: n/a
-#  fratler_transactions.module: n/a
-#  fratler_transactions.info: n/a
-#
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2014-05-31 19:10+0100\n"
-"PO-Revision-Date: 2014-05-31 19:10+0100\n"
-"Last-Translator: NAME <EMAIL@ADDRESS>\n"
-"Language-Team: German <EMAIL@ADDRESS>\n"
+"Project-Id-Version: Fratler Transactions (7.x-1.2)\n"
+"POT-Creation-Date: 2015-06-21 15:21+0100\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: German\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n!=1);\n"
 
-#: ft_admin.inc:19
+msgid "Rebuild Account table"
+msgstr "Konten-Tabelle aktualisieren"
+msgid ""
+"After changing !permissions, please remember to !rebuild the internal "
+"permissions table."
+msgstr ""
+"Bitte nicht vergessen, die interne Berechtigungstabelle zu !rebuild, "
+"nachdem die !permissions geändert wurden."
+msgid "permissions"
+msgstr "Berechtigungen"
+msgid "rebuild"
+msgstr "aktualisieren"
+msgid "-----"
+msgstr "-----"
+msgctxt "accounting"
+msgid "Account"
+msgstr "Benutzerkonto"
+msgid "Active"
+msgstr "Aktiv"
+msgid "Fingerprint"
+msgstr "Fingerabdruck"
+msgid "Display all transactions"
+msgstr "Alle Transaktionen anzeigen"
+msgid "fratler_suite"
+msgstr "fratler_suite"
+msgid "Type"
+msgstr "Typ"
+msgid "Operations"
+msgstr "Operationen"
+msgid "Name"
+msgstr "Name"
+msgid "Description"
+msgstr "Beschreibung"
+msgid "Cancel"
+msgstr "Abbrechen"
+msgid "Confirm deletion"
+msgstr "Löschen bestätigen"
 msgid "Transaction related settings"
 msgstr "Transaktionseinstellungen"
-
-#: ft_admin.inc:26
 msgid "Maximum transaction amount"
 msgstr "Maximales Transaktionsvolumen"
-
-#: ft_admin.inc:27
-msgid "The highest amount that can be transferred in one transaction.<br />Enter 0 for unlimited transactions."
+msgid ""
+"The highest amount that can be transferred in one transaction.<br "
+"/>Enter 0 for unlimited transactions."
 msgstr ""
 "Der maximale Betrag pro Transaktion.<br />Für unbegrenzte "
 "Transaktionsvolumina \"0\" eingeben."
-
-#: ft_admin.inc:38
 msgid "Overdraw limit"
 msgstr "Überziehungslimit"
-
-#: ft_admin.inc:39
-msgid "The amount a normal user may overdraw its amount by.<br />Enter a positive value to keep a \"safety-deposit\".<br />NOTE: If you enter a positive value, the permission @permission loses it's effect."
+msgid ""
+"The amount a normal user may overdraw its amount by.<br />Enter a "
+"positive value to keep a \"safety-deposit\".<br />NOTE: If you enter a "
+"positive value, the permission @permission loses it's effect."
 msgstr ""
 "Das systemweite Überziehungslimit.<br />Um ein \"Mindestguthaben\" zu "
 "garantieren kann ein positiver Betrag eingegeben werden.<br />HINWEIS: "
 "Wenn ein positiver Betrag eingegeben wird die Berechtigung @permission "
 "ignoriert."
-
-#: ft_admin.inc:50
-msgid "Rebuild Account table"
-msgstr "Konten-Tabelle aktualisieren"
-
-#: ft_admin.inc:51
-msgid "After changing !permissions, please remember to !rebuild the internal permissions table."
-msgstr ""
-"Bitte nicht vergessen, die interne Berechtigungstabelle zu !rebuild, "
-"nachdem die !permissions geändert wurden."
-
-#: ft_admin.inc:52 fratler_transactions.install:146
-msgid "permissions"
-msgstr "Berechtigungen"
-
-#: ft_admin.inc:53 fratler_transactions.install:147
-msgid "rebuild"
-msgstr "aktualisieren"
-
-#: ft_admin.inc:66
 msgid "Invalid maximum transaction amount"
 msgstr "Ungültiges maximales Transaktionsvolumen."
-
-#: ft_admin.inc:68
 msgid "Invalid overdraw amount"
 msgstr "Ungültiges Überziehungslimit."
-
-#: ft_transaction.inc:34 fratler_transactions.module:38
-msgid "New transfer"
-msgstr "Neue Transaktion"
-
-#: ft_transaction.inc:34
-msgid "New adjustment"
-msgstr "Neue Kontoanpassung"
-
-#: ft_transaction.inc:63;71 fratler_transactions.module:352;578
-msgid "Sender"
-msgstr "Sender"
-
-#: ft_transaction.inc:75
-msgid "- Select Account -"
-msgstr "– Konto wählen –"
-
-#: ft_transaction.inc:81
-msgid "Recipient"
-msgstr "Empfänger"
-
-#: ft_transaction.inc:81 fratler_transactions.module:352
-msgctxt "accounting"
-msgid "Account"
-msgstr "Benutzerkonto"
-
-#: fratler_transactions.module:584
-msgid "Account"
-msgstr "Benutzerkonto"
-
-#: ft_transaction.inc:90 fratler_transactions.module:603
-msgid "Amount"
-msgstr "Betrag"
-
-#: ft_transaction.inc:101 fratler_transactions.module:596
-msgid "Transaction-Memo"
-msgstr "Verwendungszweck"
-
-#: ft_transaction.inc:108
-msgid "Transaction-Type"
-msgstr "Transaktionstyp"
-
-#: ft_transaction.inc:112
-msgid "- @empty_option -"
-msgstr "- @empty_option -"
-
-#: ft_transaction.inc:122
+msgid "!edit !delete"
+msgstr "!edit !delete"
+msgid "Selectable"
+msgstr "Wählbar"
+msgid "Transfers"
+msgstr "Überweisungen"
+msgid "Deposits"
+msgstr "Einzahlungen"
+msgid "Withdrawals"
+msgstr "Abhebungen"
+msgid "Please assign a transaction-code (up to three characters)."
+msgstr "Transaktions-Code zuweisen (bis zu 3 Zeichen)."
+msgid "Please give a short description of this Transaction Type."
+msgstr "Eine kurze Beschreibung des Transaktionstyps."
+msgid "Transaction category"
+msgstr "Transaktionskategorie"
+msgid "Transfer"
+msgstr "Überweisung"
+msgid "Deposit"
+msgstr "Gutschrift"
+msgid "Withdrawal"
+msgstr "Belastung"
 msgid "Submit"
 msgstr "Absenden"
-
-#: ft_transaction.inc:159
+msgid "This name is already taken, please choose another one."
+msgstr "Dieser Name ist bereits belegt, bitte einen anderen wählen."
+msgid "This Transaction Type is locked, you cannot delete it."
+msgstr "Dieser Transaktionstyp ist gesperrt und kann nicht gelöscht werden."
+msgid ""
+"Please confirm you want to delete this Transaction Type. <b>This "
+"action cannot be undone.</b>"
+msgstr ""
+"Bitte Bestätigen Sie die Löschung des Transaktionstyps. <b>Diese "
+"Aktion kann nicht rückgängig gemacht werden.</b>"
+msgid "Transaction Type"
+msgstr "Transaktionstyp"
+msgid "I know what I am doing."
+msgstr "Ich weiß, was ich tue."
+msgid "Please confirm you know what you are about to do."
+msgstr "Bitte bestätigen Sie, dass Sie wissen, was Sie tun."
+msgid ""
+"There is currently <b>one</b> transaction of this type. You need to "
+"rebook or cancel this transaction first in order to delete this type."
+msgid_plural ""
+"There are currently <b>@count</b> transactions of this type. You need "
+"to rebook or cancel these transactions first in order to delete this "
+"type."
+msgstr[0] ""
+"Derzeit gibt es <b>eine</b> Transaktion dieses Typs. Diese muss zuerst "
+"umgebucht oder storniert werden, bevor dieser Transaktionstyp "
+"gelöscht werden kann."
+msgstr[1] ""
+"Derzeit gibt es <b>@count</b> Transaktionen dieses Typs. Diese müssen "
+"zuerst umgebucht oder storniert werden, bevor dieser Transaktionstyp "
+"gelöscht werden kann."
+msgid "@name (@description)"
+msgstr "@name (@description)"
+msgid "New transfer"
+msgstr "Neue Transaktion"
+msgid "New adjustment"
+msgstr "Neue Kontoanpassung"
+msgid "Sender"
+msgstr "Sender"
+msgid "- Select Account -"
+msgstr "– Konto wählen –"
+msgid "Recipient"
+msgstr "Empfänger"
+msgid "Amount"
+msgstr "Betrag"
+msgid "Transaction-Memo"
+msgstr "Verwendungszweck"
+msgid "Check"
+msgstr "Überprüfen"
+msgid "Transaction-Type"
+msgstr "Transaktionstyp"
+msgid "- Transfers -"
+msgstr "– Überweisungen –"
+msgid "- Deposits -"
+msgstr "– Einzahlungen –"
+msgid "- Withdrawals -"
+msgstr "– Abhebungen –"
 msgid "Create new transaction after this one."
 msgstr "Eine weitere Transaktion erstellen."
-
-#: ft_transaction.inc:163
 msgid "Are you sure you want to proceed?"
 msgstr "Wirklich fortfahren?"
-
-#: ft_transaction.inc:163
 msgid "Proceed"
 msgstr "Fortfahren"
-
-#: ft_transaction.inc:175
-msgid "Something just went horribly wrong. Please panic now."
-msgstr ""
-"Da ist irgendwas komplett schief gelaufen. Bitte jetzt in Panik "
-"ausbrechen."
-
-#: ft_transaction.inc:182
-msgid "Invalid value."
-msgstr "Ungültiger Betrag."
-
-#: ft_transaction.inc:190;199
-msgid "@account invalid."
-msgstr "@account ungültig."
-
-#: fratler_transactions.module:179
+msgid "Transaction completed successfully."
+msgstr "Transaktion erfolgreich abgeschlossen."
+msgid "Please verify your input."
+msgid_plural "Please verify your input and select a transaction-type."
+msgstr[0] "Bitte die Angaben überprüfen."
+msgstr[1] "Bitte die Angaben überprüfen und einen Transaktionstyp auswählen."
 msgid "My account statement"
 msgstr "Mein Kontoauszug"
-
-#: fratler_transactions.module:179
 msgid "@name's account statement"
 msgstr "@names Kontoauszug"
-
-#: fratler_transactions.module:223;459
 msgid "No transactions available."
 msgstr "Keine Transaktionen verfügbar."
-
-#: fratler_transactions.module:257
 msgid "Switch accounts"
 msgstr "Konto wechseln"
-
-#: fratler_transactions.module:265
 msgid "Switch to:"
 msgstr "Wechseln zu:"
-
-#: fratler_transactions.module:283
 msgid "Go"
 msgstr "Los"
-
-#: fratler_transactions.module:300
 msgid "Invalid account name."
 msgstr "Ungültiger Kontoname."
-
-#: fratler_transactions.module:319
 msgid "Filter transactions"
 msgstr "Transaktionen filtern"
-
-#: fratler_transactions.module:326
 msgid "By timestamp"
 msgstr "Nach Zeitstempel"
-
-#: fratler_transactions.module:332;404;407
 msgid "From:"
 msgstr "Von:"
-
-#: fratler_transactions.module:339;415
 msgid "To:"
 msgstr "Bis:"
-
-#: fratler_transactions.module:346
 msgid "By account"
 msgstr "Nach Konto"
-
-#: fratler_transactions.module:355
 msgid "any"
 msgstr "beliebig"
-
-#: fratler_transactions.module:366
 msgid "By type"
 msgstr "Nach Typ"
-
-#: fratler_transactions.module:381
 msgid "Select type(s)"
 msgstr "Typ auswählen"
-
-#: fratler_transactions.module:388
 msgid "By memo"
 msgstr "Nach Verwendungszweck"
-
-#: fratler_transactions.module:398
 msgid "By amount"
 msgstr "Nach Betrag"
-
-#: fratler_transactions.module:424
 msgid "Filter"
 msgstr "Filter"
-
-#: fratler_transactions.module:428
 msgid "Reset"
 msgstr "Zurücksetzen"
-
-#: fratler_transactions.module:443
 msgid "Transaction #@tid"
 msgstr "Transaktion #@tid"
-
-#: fratler_transactions.module:493;522
-msgid "-----"
-msgstr "-----"
-
-#: fratler_transactions.module:510
 msgid "By: @user"
 msgstr "Durch @user"
-
-#: fratler_transactions.module:535;540
 msgid "Fingerprint valid"
 msgstr "Fingerabdruck gültig"
-
-#: fratler_transactions.module:535;540
 msgid "Fingerprint invalid!"
 msgstr "Fingerabdruck ungültig!"
-
-#: fratler_transactions.module:563
 msgid "#"
 msgstr "#"
-
-#: fratler_transactions.module:564
 msgid "Transaction-ID"
 msgstr "Transaktions-ID"
-
-#: fratler_transactions.module:571
 msgid "Timestamp"
 msgstr "Zeitstempel"
-
-#: fratler_transactions.module:590
-msgid "Type"
-msgstr "Typ"
-
-#: fratler_transactions.module:610
 msgid "New balance:<br/>Sender"
 msgstr "Neuer Kontostand:<br />Sender"
-
-#: fratler_transactions.module:610;618
 msgid "New balance"
 msgstr "Neuer Kontostand"
-
-#: fratler_transactions.module:618
 msgid "New balance:<br/>Account"
 msgstr "Neuer Kontostand:<br />Konto"
-
-#: fratler_transactions.module:626
-msgid "Fingerprint"
-msgstr "Fingerabdruck"
-
-#: fratler_transactions.module:893
+msgid "@name"
+msgstr "@name"
+msgid "@desc"
+msgstr "@desc"
+msgid "Deleted Transaction Type @name."
+msgstr "Transaktionstyp @name gelöscht."
 msgid "Transaction record"
 msgstr "Transaktionsdaten"
-
-#: fratler_transactions.module:1083
 msgid "Recipient and Sender must not be identical."
 msgstr "Sender und Empfänger müssen unterschiedlich sein."
-
-#: fratler_transactions.module:1084
 msgid "You are not allowed to transfer your own funds."
 msgstr ""
 "Du kannst keine abgehenden Transaktionen von deinem eigenen Konto "
 "tätigen."
-
-#: fratler_transactions.module:1085
 msgid "You are not allowed to transfer others' funds."
 msgstr "Du kannst keine abgehenden Transaktionen von fremden Konten tätigen."
-
-#: fratler_transactions.module:1086
 msgid "You are not allowed to participate in transactions."
 msgstr "Du kannst keine Transaktionen tätigen."
-
-#: fratler_transactions.module:1087
 msgid "This account is not allowed to participate in transactions."
 msgstr "Dieses Konto kann keine Transaktionen tätigen."
-
-#: fratler_transactions.module:1088
 msgid "You are not allowed to adjust your own account."
 msgstr "Du kannst dein eigenes Konto nicht anpassen."
-
-#: fratler_transactions.module:1089
 msgid "You are not allowed to adjust other accounts."
 msgstr "Du kannst fremde Konten nicht anpassen."
-
-#: fratler_transactions.module:1091
 msgid "Amount invalid."
 msgstr "Betrag ungültig."
-
-#: fratler_transactions.module:1092
 msgid "Amount exceeds maximum transaction value."
 msgstr "Der Betrag überschreitet das maximale Transaktionsvolumen."
-
-#: fratler_transactions.module:1094
 msgid "This transaction will overdraw the sender's account."
 msgstr "Diese Transaktion würde das Konto des Senders überziehen."
-
-#: fratler_transactions.module:1095
 msgid "This transaction will exceed the sender's overdraw-limit."
 msgstr ""
 "Diese Transaktion würde das Überziehungslimit des Senders "
 "überschreiten."
-
-#: fratler_transactions.module:1096
 msgid "This transaction will overdraw the account."
 msgstr "Diese Transaktion würde das Konto überziehen."
-
-#: fratler_transactions.module:1097
 msgid "This transaction will exceed the account's overdraw-limit."
 msgstr ""
 "Diese Transaktion würde das Überziehungslimit des Kontos "
 "überschreiten."
-
-#: fratler_transactions.module:1098
 msgid "This transaction will overdraw your account."
 msgstr "Diese Transaktion würde dein Konto überziehen."
-
-#: fratler_transactions.module:1099
 msgid "This transaction will exceed your overdraw-limit."
 msgstr "Diese Transaktion würde dein Überziehungslimit überschreiten."
-
-#: fratler_transactions.module:1101
+msgid "The sender is invalid."
+msgstr "Ungültiger Absender."
+msgid "The recipient is invalid."
+msgstr "Ungültiger Empfänger."
 msgid "The transaction-type is invalid."
 msgstr "Ungültiger Transaktionstyp."
-
-#: fratler_transactions.module:1105
+msgid ""
+"Signature mismatch detected. Please contact an administrator "
+"immediately!"
+msgstr ""
+"Signaturfehler festgestellt. Bitte umgehend einen Administrator "
+"kontaktieren!"
 msgid "An unknown error occured. Your transaction could not be completed."
 msgstr ""
 "Ein unbekannter Fehler ist aufgetreten. Die Transaktion konnte nicht "
 "abgeschlossen werden."
-
-#: fratler_transactions.module:1119
 msgid "Rebooking account %from to %to"
 msgstr "Buche Konto %from auf Konto %to um"
-
-#: fratler_transactions.module:1204
-msgid "Well... this is embarassing. Could not finish the job. Ask your admin for help. Sorry!"
+msgid ""
+"Well... this is embarassing. Could not finish the job. Ask your admin "
+"for help. Sorry!"
 msgstr ""
 "Hm… das ist peinlich. Der Vorgang konnte nicht abgeschlossen werden. "
 "Bitte an den Administrator wenden - Sorry!"
-
-#: fratler_transactions.module:1263
 msgid "[%old &#8594; %new on @date by @user]"
 msgstr "[%old &#8594; %new am @date durch @user]"
-
-#: fratler_transactions.module:1239
 msgid "Rebooked one transaction from %old to %new."
 msgid_plural "Rebooked @count transactions from %old to %new."
 msgstr[0] "Es wurde eine Transaktion von %old nach %new umgebucht."
 msgstr[1] "Es wurden @count Transaktionen von %old nach %new umgebucht."
-
-#: fratler_transactions.module:29 fratler_transactions.info:0
 msgid "Fratler Transactions"
 msgstr "Fratler-Transaktionen"
-
-#: fratler_transactions.module:30
 msgid "Configure the transaction entity of the fratler_suite"
 msgstr "Die Transaktionseinheit der fratler_suite konfigurieren."
-
-#: fratler_transactions.module:39
+msgid "Transactions"
+msgstr "Transaktionen"
+msgid "Transaction types"
+msgstr "Transaktionstypen"
+msgid "Configure transaction types for Fratler Transactions"
+msgstr "Transaktionstypen für Fratler Transaktionen konfigurieren."
+msgid "Add new Transaction Type"
+msgstr "Neuer Transaktionstyp"
+msgid "Edit Transaction Type"
+msgstr "Transaktionstyp bearbeiten"
+msgid "Delete Transaction Type"
+msgstr "Transaktionstyp löschen"
 msgid "Make a new transaction"
 msgstr "Eine neue Transaktion anlegen"
-
-#: fratler_transactions.module:52
 msgid "Adjust account"
 msgstr "Konto anpassen"
-
-#: fratler_transactions.module:53
 msgid "Adjust an account"
 msgstr "Konto anpassen"
-
-#: fratler_transactions.module:68
 msgid "View transaction"
 msgstr "Transaktion ansehen"
-
-#: fratler_transactions.module:69
 msgid "Display a single transaction"
 msgstr "Eine einzelne Transaktion anzeigen"
-
-#: fratler_transactions.module:81
 msgid "All transactions"
 msgstr "Alle Transaktionen"
-
-#: fratler_transactions.module:82
-msgid "Display all transactions"
-msgstr "Alle Transaktionen anzeigen"
-
-#: fratler_transactions.module:93;107
 msgid "Statement"
 msgstr "Kontoauszug"
-
-#: fratler_transactions.module:94;108
 msgid "View your account statement"
 msgstr "Den eigenen Kontoauszug anzeigen."
-
-#: fratler_transactions.module:119;120
 msgid "Account statement"
 msgstr "Kontoauszug"
-
-#: fratler_transactions.install:82
-msgid "Transaction-Types"
-msgstr "Transaktionstypen"
-
-#: fratler_transactions.install:83
-msgid "Fratler Transaction-Types. DO NOT REMOVE THIS VOCABULARY. I'm serious!"
-msgstr ""
-"Fratler Transaktionstypen. NICHT LÖSCHEN!!! Ich meine es ernst - "
-"Pfoten weg!"
-
-#: fratler_transactions.install:93
-msgid "Transfers"
-msgstr "Überweisungen"
-
-#: fratler_transactions.install:94
-msgid "Transfer transaction types"
-msgstr "Transaktionstypen für Überweisungen"
-
-#: fratler_transactions.install:103
 msgctxt "Abbreviation for Standard Transfer"
 msgid "T"
 msgstr "Ü"
-
-#: fratler_transactions.install:104
 msgid "Standard Transfer"
 msgstr "Überweisung"
-
-#: fratler_transactions.install:113
-msgid "Adjustments"
-msgstr "Anpassungen"
-
-#: fratler_transactions.install:114
-msgid "Adjustment transaction types"
-msgstr "Transaktionstypen für Anpassungen"
-
-#: fratler_transactions.install:123
-msgctxt "Abbreviation for Withdrawal"
-msgid "W"
-msgstr "B"
-
-#: fratler_transactions.install:124
-msgid "Withdrawal"
-msgstr "Belastung"
-
-#: fratler_transactions.install:133
 msgctxt "Abbreviation for Deposit"
 msgid "D"
 msgstr "G"
-
-#: fratler_transactions.install:134
-msgid "Deposit"
-msgstr "Gutschrift"
-
-#: fratler_transactions.install:145
-msgid "Please remember seting the !permissions and !rebuild the Fratler Account table afterwards to enable Fratler Accounts. You can also find the link in the !admin configuration."
+msgctxt "Abbreviation for Withdrawal"
+msgid "W"
+msgstr "B"
+msgid ""
+"Please remember seting the !permissions and !rebuild the Fratler "
+"Account table afterwards to enable Fratler Accounts. You can also find "
+"the link in the !admin configuration."
 msgstr ""
 "Bitte nicht vergessen, die interne Berechtigungstabelle zu !rebuild, "
 "nachdem die !permissions geändert wurden, um die Fratler-Konten zu "
 "aktiveren. Der Link ist auch in der !admin-Konfiguration zu finden."
-
-#: fratler_transactions.info:0
 msgid "Transaction functionality for Fratler Accounts"
 msgstr "Transaktionsfunktionen für Fratler-Konten"
-
-#: fratler_transactions.info:0
-msgid "fratler_suite"
-msgstr "fratler_suite"
-
